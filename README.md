@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UMCA — Urban Mobility-Based Character Assessment
 
-## Getting Started
+**UMCA** adalah sistem absensi digital dan asesmen karakter kedisiplinan siswa berbasis kartu/tag NFC (Near Field Communication) yang dirancang khusus untuk sistem absensi Sekolah Dasar (SD) di Jakarta. 
 
-First, run the development server:
+Aplikasi ini mempermudah guru dan sekolah dalam memantau kehadiran siswa secara *real-time* guna mengevaluasi perilaku serta mobilitas karakter siswa sehari-hari.
 
+---
+
+## 🚀 Fitur Utama
+
+- **Absensi Berbasis NFC**: Integrasi nirkabel dengan pemindai NFC untuk pencatatan kehadiran yang instan dan akurat.
+- **Dashboard Guru**: Halaman ringkasan statistik kehadiran siswa harian dengan diagram visual yang interaktif.
+- **Rekap Kehadiran**: Tabel kehadiran bulanan yang lengkap dengan filter tanggal dan status kehadiran, serta fitur ekspor ke Excel.
+- **Data & Profil Siswa**: Kelola data siswa, detail identifikasi kartu NFC, dan catatan karakter kedisiplinan per individu.
+- **Sistem Keamanan & Login**: Halaman autentikasi guru yang aman dengan sistem konfirmasi logout terintegrasi (SweetAlert2).
+
+---
+
+## 🛠️ Tech Stack
+
+- **Core Framework**: [Next.js](https://nextjs.org/) (React 19 & Turbopack)
+- **Styling**: Tailwind CSS v4 & Lucide Icons
+- **Dialog & UI Popups**: SweetAlert2 & Shadcn/ui Components
+- **Data Exporting**: SheetJS (XLSX)
+
+---
+
+## 💻 Memulai Pengembangan
+
+### Prasyarat
+Pastikan Anda sudah menginstal Node.js (versi terbaru direkomendasikan) di komputer Anda.
+
+### Instalasi Dependensi
+Jalankan perintah berikut pada direktori project untuk memasang semua modul pendukung:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Menjalankan Server Pengembangan
+Jalankan server lokal untuk melihat aplikasi secara langsung:
+```bash
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Buka browser Anda dan akses halaman [http://localhost:3000](http://localhost:3000).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 📂 Struktur Project
 
-To learn more about Next.js, take a look at the following resources:
+```text
+├── public/
+│   ├── logo/
+│   │   └── Logo UMCA.png      # Logo resmi aplikasi
+├── src/
+│   ├── app/                   # Rute & Page Next.js (App Router)
+│   │   ├── login/             # Halaman login guru
+│   │   └── guru/              # Halaman dashboard, siswa, dan rekap
+│   ├── components/            # Komponen UI & Layout yang dapat digunakan kembali
+│   └── lib/                   # Fungsi helper, utilitas ekspor, dan data tiruan (mock data)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+© 2026 UMCA Jakarta. All rights reserved.
