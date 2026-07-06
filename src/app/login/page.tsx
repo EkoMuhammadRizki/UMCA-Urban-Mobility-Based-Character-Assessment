@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, User, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,27 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // Splash screen states
+  const [showSplash, setShowSplash] = useState(true);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+
+  useEffect(() => {
+    // Start fading out after 1.8 seconds
+    const fadeTimer = setTimeout(() => {
+      setIsFadingOut(true);
+    }, 1800);
+
+    // Completely remove splash screen from DOM after 2.4 seconds
+    const removeTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2400);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +54,54 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-navy-950 px-4 py-12 sm:px-6 lg:px-8">
+      {/* CSS Keyframes for Splash Screen loading bar */}
+      <style>{`
+        @keyframes progress-bar {
+          0% { width: 0%; }
+          100% { width: 100%; }
+        }
+        .animate-progress-bar {
+          animation: progress-bar 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+      `}</style>
+
+      {/* Splash Screen Overlay */}
+      {showSplash && (
+        <div
+          className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-navy-950 transition-opacity duration-700 ${
+            isFadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
+          {/* Background ambient light effects */}
+          <div className="absolute top-[-20%] left-[-10%] h-[600px] w-[600px] rounded-full bg-brand-600/15 blur-[120px]" />
+          <div className="absolute bottom-[-20%] right-[-10%] h-[600px] w-[600px] rounded-full bg-brand-500/15 blur-[120px]" />
+          
+          <div className="relative flex flex-col items-center text-center px-4">
+            {/* Animated Logo Container */}
+            <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-white p-3 shadow-2xl ring-8 ring-white/5 animate-pulse">
+              <img
+                src="/logo/Logo UMCA.png"
+                alt="UMCA Logo"
+                className="h-full w-full object-contain"
+              />
+            </div>
+            
+            {/* Titles */}
+            <h1 className="mt-8 text-4xl font-extrabold tracking-wider text-white">
+              UMCA
+            </h1>
+            <p className="mt-3 text-xs text-brand-500 max-w-xs font-semibold uppercase tracking-widest leading-relaxed">
+              Urban Mobility-Based Character Assessment
+            </p>
+
+            {/* Loading Indicator */}
+            <div className="mt-12 h-1.5 w-40 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full bg-brand-500 rounded-full animate-progress-bar" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Background ambient light effects */}
       <div className="absolute top-[-20%] left-[-10%] h-[600px] w-[600px] rounded-full bg-brand-600/10 blur-[120px]" />
       <div className="absolute bottom-[-20%] right-[-10%] h-[600px] w-[600px] rounded-full bg-brand-500/10 blur-[120px]" />
