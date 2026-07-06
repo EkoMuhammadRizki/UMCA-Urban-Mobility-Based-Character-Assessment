@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("demo@gmail.com");
+  const [password, setPassword] = useState("demo");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
