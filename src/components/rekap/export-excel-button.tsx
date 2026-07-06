@@ -22,7 +22,7 @@ export function ExportExcelButton({
   month,
   year,
   kelas,
-  namaSekolah = "SDN 1 Kota Semarang",
+  namaSekolah = "SDN 1 Kota Jakarta",
   disabled = false,
 }: ExportExcelButtonProps) {
   const [isExporting, setIsExporting] = useState(false);

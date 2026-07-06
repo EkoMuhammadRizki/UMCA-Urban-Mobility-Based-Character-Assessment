@@ -4,7 +4,7 @@
 import * as XLSX from "xlsx";
 import type { RekapKehadiranRow } from "@/lib/types";
 import { StatusKehadiran } from "@/lib/types";
-import { formatDayHeader, formatMonthYear } from "@/lib/utils/date-utils";
+import { formatDayHeader, formatMonthYear, toISODateString } from "@/lib/utils/date-utils";
 import { getStatusLabel } from "@/lib/utils/attendance-utils";
 
 /**
@@ -16,7 +16,7 @@ export function exportAttendanceToExcel(
   month: number,
   year: number,
   kelas: string,
-  namaSekolah: string = "SDN 1 Kota Semarang"
+  namaSekolah: string = "SDN 1 Kota Jakarta"
 ): void {
   // Create workbook
   const wb = XLSX.utils.book_new();
@@ -42,7 +42,7 @@ export function exportAttendanceToExcel(
     const dataRow: (string | number)[] = [idx + 1, row.siswa.nama];
 
     weekdays.forEach((day) => {
-      const dateKey = day.toISOString().split("T")[0];
+      const dateKey = toISODateString(day);
       const kehadiran = row.kehadiran[dateKey];
       if (kehadiran) {
         dataRow.push(getStatusLabel(kehadiran.status));
