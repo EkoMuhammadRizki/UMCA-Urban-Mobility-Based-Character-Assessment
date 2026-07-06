@@ -43,13 +43,18 @@ export default function LoginPage() {
       return;
     }
 
-    setIsLoading(true);
-
-    // Simulate login verification
-    setTimeout(() => {
-      setIsLoading(false);
-      router.push("/guru/dashboard");
-    }, 1200);
+    if (username === "demo@gmail.com" && password === "demo") {
+      setIsLoading(true);
+      // Simulate login verification
+      setTimeout(() => {
+        setIsLoading(false);
+        localStorage.setItem("user_nama", "Demo");
+        localStorage.setItem("user_role", "Demo User");
+        router.push("/guru/dashboard");
+      }, 1200);
+    } else {
+      setError("Email atau password salah. Gunakan email: demo@gmail.com dan password: demo");
+    }
   };
 
   return (

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Swal from "sweetalert2";
@@ -43,6 +45,15 @@ interface SidebarProps {
 export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [nama, setNama] = useState(guruNama);
+  const [role, setRole] = useState(guruRole);
+
+  useEffect(() => {
+    const storedNama = localStorage.getItem("user_nama");
+    const storedRole = localStorage.getItem("user_role");
+    if (storedNama) setNama(storedNama);
+    if (storedRole) setRole(storedRole);
+  }, []);
 
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -123,7 +134,7 @@ export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A"
       <div className="border-t border-white/10 px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">
-            {guruNama
+            {nama
               .split(" ")
               .map((n) => n[0])
               .join("")
@@ -131,8 +142,8 @@ export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A"
               .toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{guruNama}</p>
-            <p className="text-xs text-text-muted truncate">{guruRole}</p>
+            <p className="text-sm font-medium text-white truncate">{nama}</p>
+            <p className="text-xs text-text-muted truncate">{role}</p>
           </div>
           <button
             onClick={handleLogout}

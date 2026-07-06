@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 import { Bell, School, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
@@ -14,6 +16,12 @@ export function Topbar({
   guruNama = "Bu Ratna Dewi",
 }: TopbarProps) {
   const router = useRouter();
+  const [nama, setNama] = useState(guruNama);
+
+  useEffect(() => {
+    const storedNama = localStorage.getItem("user_nama");
+    if (storedNama) setNama(storedNama);
+  }, []);
 
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -68,11 +76,11 @@ export function Topbar({
         {/* Profile */}
         <div className="flex items-center gap-2 md:gap-3 border-l border-border-subtle pl-2 md:pl-4">
           <div className="hidden md:block">
-            <p className="text-sm font-semibold text-text-primary text-right">{guruNama}</p>
+            <p className="text-sm font-semibold text-text-primary text-right">{nama}</p>
             <p className="text-xs text-text-secondary text-right">Wali Kelas 4A</p>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">
-            {guruNama
+            {nama
               .split(" ")
               .map((n) => n[0])
               .join("")
