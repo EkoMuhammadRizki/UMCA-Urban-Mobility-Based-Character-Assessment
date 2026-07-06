@@ -1,0 +1,204 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono);
+  --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* shadcn semantic colors */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Radius tokens */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+
+  /* PresenceSync Design System Colors */
+  /* Navy / Base */
+  --color-navy-950: #0A1428;
+  --color-navy-900: #0D1B33;
+  --color-navy-800: #122447;
+  --color-navy-700: #1A3260;
+
+  /* Brand Blue */
+  --color-brand-600: #2563EB;
+  --color-brand-700: #1D4ED8;
+  --color-brand-500: #3B82F6;
+  --color-brand-100: #DBEAFE;
+  --color-brand-50: #EFF6FF;
+
+  /* Status Colors */
+  --color-status-green-bg: #DCFCE7;
+  --color-status-green-text: #15803D;
+  --color-status-amber-bg: #FEF3C7;
+  --color-status-amber-text: #B45309;
+  --color-status-red-bg: #FEE2E2;
+  --color-status-red-text: #B91C1C;
+  --color-status-gray-bg: #F1F5F9;
+  --color-status-gray-text: #475569;
+
+  /* Surface / Background */
+  --color-bg-app: #F5F7FA;
+  --color-surface-card: #FFFFFF;
+  --color-border-subtle: #E5E8EF;
+
+  /* Text */
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+
+  /* Gradient card */
+  --color-gradient-start: #1E3A8A;
+  --color-gradient-end: #2563EB;
+}
+
+:root {
+  --background: #F5F7FA;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #DBEAFE;
+  --accent-foreground: #1E3A8A;
+  --destructive: #B91C1C;
+  --border: #E5E8EF;
+  --input: #E5E8EF;
+  --ring: #2563EB;
+  --chart-1: #15803D;
+  --chart-2: #B45309;
+  --chart-3: #B91C1C;
+  --chart-4: #2563EB;
+  --chart-5: #64748B;
+  --radius: 12px;
+  --sidebar: #0A1428;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #2563EB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #2563EB;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Custom scrollbar for tables */
+.attendance-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.attendance-table-scroll::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+.attendance-table-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+.attendance-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Gradient card styles */
+.gradient-card {
+  background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+}
+
+/* Sticky column styles for attendance table */
+.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background-color: inherit;
+}
+
+.sticky-col-header {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+}
+
+/* Animation keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}

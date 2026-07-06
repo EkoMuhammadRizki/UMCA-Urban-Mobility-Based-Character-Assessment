@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sekolah {
+  id              String   @id @default(cuid())
+  nama            String
+  jamMasuk        String   @default("07:00") // format HH:mm
+  toleransiMenit  Int      @default(0)
+  siswa           Siswa[]
+  guru            Guru[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Siswa {
+  id            String      @id @default(cuid())
+  nama          String
+  kelas         String
+  nfcTagId      String      @unique
+  sekolahId     String
+  sekolah       Sekolah     @relation(fields: [sekolahId], references: [id])
+  kehadiran     Kehadiran[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([sekolahId])
+  @@index([kelas])
+}
+
+model Kehadiran {
+  id              String           @id @default(cuid())
+  siswaId         String
+  siswa           Siswa            @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  tanggal         DateTime         @db.Date // hanya tanggal (weekday)
+  jamTap          DateTime?        // timestamp lengkap saat tap NFC, null jika ABSEN
+  status          StatusKehadiran
+  modaTransport   String?          // untuk indikator peduli lingkungan (opsional)
+  haltId          String?
+  createdAt       DateTime         @default(now())
+
+  @@unique([siswaId, tanggal]) // satu record per siswa per hari
+  @@index([tanggal])
+  @@index([siswaId])
+}
+
+enum StatusKehadiran {
+  TEPAT_WAKTU
+  TELAT
+  ABSEN
+}
+
+model Guru {
+  id          String   @id @default(cuid())
+  nama        String
+  email       String   @unique
+  password    String?  // hashed
+  sekolahId   String
+  sekolah     Sekolah  @relation(fields: [sekolahId], references: [id])
+  role        Role     @default(GURU)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sekolahId])
+}
+
+enum Role {
+  GURU
+  ADMIN
+  ORANG_TUA
+}
