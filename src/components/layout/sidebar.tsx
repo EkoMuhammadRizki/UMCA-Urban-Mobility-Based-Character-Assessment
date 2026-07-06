@@ -68,7 +68,7 @@ export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A"
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-[260px] flex-col bg-navy-950">
+    <aside className="fixed left-0 top-0 z-40 hidden md:flex h-screen w-[260px] flex-col bg-navy-950">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-6">
         <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white p-1">
