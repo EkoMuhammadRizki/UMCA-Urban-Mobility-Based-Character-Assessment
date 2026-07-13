@@ -6,6 +6,7 @@ import type { RekapKehadiranRow } from "@/lib/types";
 import { StatusKehadiran } from "@/lib/types";
 import { formatDayHeader, formatMonthYear, toISODateString } from "@/lib/utils/date-utils";
 import { getStatusLabel } from "@/lib/utils/attendance-utils";
+import { tentukanEcoPoin } from "@/lib/eco-assessment";
 
 /**
  * Export attendance recap data to an Excel (.xlsx) file.
@@ -34,6 +35,8 @@ export function exportAttendanceToExcel(
   weekdays.forEach((day) => {
     headers.push(formatDayHeader(day));
   });
+  headers.push("Titik Tap (Dominan)");
+  headers.push("Kategori Emisi (Estimasi)");
   headers.push("% Tepat Waktu");
   rows.push(headers);
 
@@ -41,16 +44,50 @@ export function exportAttendanceToExcel(
   data.forEach((row, idx) => {
     const dataRow: (string | number)[] = [idx + 1, row.siswa.nama];
 
+    let halteCount = 0;
+    let gerbangCount = 0;
+    let totalEcoScore = 0;
+    let validEcoCount = 0;
+
     weekdays.forEach((day) => {
       const dateKey = toISODateString(day);
       const kehadiran = row.kehadiran[dateKey];
       if (kehadiran) {
         dataRow.push(getStatusLabel(kehadiran.status));
+        
+        if (kehadiran.status !== StatusKehadiran.ABSEN && kehadiran.titikTap) {
+          if (kehadiran.titikTap === "HALTE") halteCount++;
+          if (kehadiran.titikTap === "GERBANG_SEKOLAH") gerbangCount++;
+          
+          const eco = tentukanEcoPoin(kehadiran.titikTap, kehadiran.modaTransport);
+          totalEcoScore += eco.skorEcoPoin;
+          validEcoCount++;
+        }
       } else {
         dataRow.push("-");
       }
     });
 
+    const dominantTap = halteCount === 0 && gerbangCount === 0
+      ? "—"
+      : halteCount >= gerbangCount
+        ? `Halte (${halteCount}x)`
+        : `Gerbang (${gerbangCount}x)`;
+
+    const averageEcoScore = validEcoCount > 0 ? Math.round(totalEcoScore / validEcoCount) : 0;
+    let kategoriEmisi = "—";
+    if (validEcoCount > 0) {
+      if (averageEcoScore >= 70) {
+        kategoriEmisi = "Rendah Emisi";
+      } else if (averageEcoScore >= 40) {
+        kategoriEmisi = "Sedang";
+      } else {
+        kategoriEmisi = "Tinggi Emisi";
+      }
+    }
+
+    dataRow.push(dominantTap);
+    dataRow.push(kategoriEmisi);
     dataRow.push(`${row.persentaseTepatWaktu}%`);
     rows.push(dataRow);
   });
@@ -63,6 +100,8 @@ export function exportAttendanceToExcel(
     { wch: 4 },  // No
     { wch: 25 }, // Nama Siswa
     ...weekdays.map(() => ({ wch: 12 })), // Day columns
+    { wch: 20 }, // Titik Tap
+    { wch: 22 }, // Kategori Emisi
     { wch: 14 }, // % column
   ];
   ws["!cols"] = colWidths;

@@ -12,6 +12,7 @@ import { getWeekdaysInMonth, formatDayHeader, toISODateString, formatTime } from
 import type { RekapKehadiranRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { tentukanEcoPoin } from "@/lib/eco-assessment";
 
 interface AttendanceTableProps {
   data: RekapKehadiranRow[];
@@ -102,6 +103,12 @@ export function AttendanceTable({
                   </div>
                 </th>
               ))}
+              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-secondary min-w-[120px]">
+                Titik Tap (Dominan)
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-secondary min-w-[140px]">
+                Kategori Emisi
+              </th>
               {/* Summary column */}
               <th className="sticky right-0 z-20 bg-[#FAFBFC] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-secondary min-w-[90px] border-l border-border-subtle">
                 % TW
@@ -109,81 +116,157 @@ export function AttendanceTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
-            {data.map((row, idx) => (
-              <tr
-                key={row.siswa.id}
-                className="hover:bg-slate-50/80 transition-colors group"
-              >
-                {/* No */}
-                <td className="sticky left-0 z-10 bg-white group-hover:bg-slate-50/80 px-4 py-2.5 text-sm text-text-secondary border-r border-border-subtle transition-colors">
-                  {idx + 1}
-                </td>
-                {/* Nama Siswa */}
-                <td className="sticky left-12 z-10 bg-white group-hover:bg-slate-50/80 px-4 py-2.5 border-r border-border-subtle transition-colors">
-                  <Link
-                    href={`/guru/siswa/${row.siswa.id}`}
-                    className="text-sm font-medium text-brand-600 hover:text-brand-700 hover:underline transition-colors"
-                  >
-                    {row.siswa.nama}
-                  </Link>
-                </td>
-                {/* Day cells */}
-                {weekdays.map((day) => {
-                  const dateStr = toISODateString(day);
-                  const kehadiran = row.kehadiran[dateStr];
+            {data.map((row, idx) => {
+              const kehadiranList = Object.values(row.kehadiran).filter((k) => k.status !== "ABSEN");
 
-                  if (!kehadiran) {
+              let halteCount = 0;
+              let gerbangCount = 0;
+              let totalEcoScore = 0;
+              let validEcoCount = 0;
+
+              kehadiranList.forEach((k) => {
+                if (k.titikTap) {
+                  if (k.titikTap === "HALTE") halteCount++;
+                  if (k.titikTap === "GERBANG_SEKOLAH") gerbangCount++;
+                  
+                  const eco = tentukanEcoPoin(k.titikTap, k.modaTransport);
+                  totalEcoScore += eco.skorEcoPoin;
+                  validEcoCount++;
+                }
+              });
+
+              const dominantTap = halteCount === 0 && gerbangCount === 0
+                ? "—"
+                : halteCount >= gerbangCount
+                  ? `Halte (${halteCount}x)`
+                  : `Gerbang (${gerbangCount}x)`;
+
+              const averageEcoScore = validEcoCount > 0 ? Math.round(totalEcoScore / validEcoCount) : 0;
+              let kategoriEmisi = "—";
+              if (validEcoCount > 0) {
+                if (averageEcoScore >= 70) {
+                  kategoriEmisi = "Rendah Emisi";
+                } else if (averageEcoScore >= 40) {
+                  kategoriEmisi = "Sedang";
+                } else {
+                  kategoriEmisi = "Tinggi Emisi";
+                }
+              }
+
+              return (
+                <tr
+                  key={row.siswa.id}
+                  className="hover:bg-slate-50/80 transition-colors group"
+                >
+                  {/* No */}
+                  <td className="sticky left-0 z-10 bg-white group-hover:bg-slate-50/80 px-4 py-2.5 text-sm text-text-secondary border-r border-border-subtle transition-colors">
+                    {idx + 1}
+                  </td>
+                  {/* Nama Siswa */}
+                  <td className="sticky left-12 z-10 bg-white group-hover:bg-slate-50/80 px-4 py-2.5 border-r border-border-subtle transition-colors">
+                    <Link
+                      href={`/guru/siswa/${row.siswa.id}`}
+                      className="text-sm font-medium text-brand-600 hover:text-brand-700 hover:underline transition-colors"
+                    >
+                      {row.siswa.nama}
+                    </Link>
+                  </td>
+                  {/* Day cells */}
+                  {weekdays.map((day) => {
+                    const dateStr = toISODateString(day);
+                    const kehadiran = row.kehadiran[dateStr];
+
+                    if (!kehadiran) {
+                      return (
+                        <td
+                          key={dateStr}
+                          className="px-2 py-2.5 text-center"
+                        >
+                          <span className="text-xs text-text-muted">-</span>
+                        </td>
+                      );
+                    }
+
                     return (
                       <td
                         key={dateStr}
-                        className="px-2 py-2.5 text-center"
+                        className="px-1 py-2.5 text-center"
                       >
-                        <span className="text-xs text-text-muted">-</span>
+                        <Tooltip>
+                          <TooltipTrigger className="cursor-default">
+                              <StatusBadge
+                                status={kehadiran.status}
+                                compact
+                                showDot={false}
+                              />
+                          </TooltipTrigger>
+                          <TooltipContent className="rounded-lg px-3 py-2 shadow-lg">
+                            <div className="text-xs space-y-1 text-left">
+                              <p className="font-semibold text-text-primary">
+                                {kehadiran.jamTap
+                                  ? `Tap: ${formatTime(kehadiran.jamTap)}`
+                                  : "Tidak hadir"}
+                              </p>
+                              {kehadiran.jamTap && kehadiran.titikTap && (
+                                <p className="text-text-secondary">
+                                  Lokasi: {kehadiran.titikTap === "HALTE" ? "Halte" : "Gerbang Sekolah"}
+                                </p>
+                              )}
+                              {kehadiran.jamTap && kehadiran.modaTransport && (
+                                <p className="text-text-secondary">
+                                  Moda: {kehadiran.modaTransport}
+                                </p>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                       </td>
                     );
-                  }
-
-                  return (
-                    <td
-                      key={dateStr}
-                      className="px-1 py-2.5 text-center"
-                    >
-                      <Tooltip>
-                        <TooltipTrigger className="cursor-default">
-                            <StatusBadge
-                              status={kehadiran.status}
-                              compact
-                              showDot={false}
-                            />
-                        </TooltipTrigger>
-                        <TooltipContent className="rounded-lg px-3 py-2 shadow-lg">
-                          <p className="text-sm font-medium">
-                            {kehadiran.jamTap
-                              ? `Tap: ${formatTime(kehadiran.jamTap)}`
-                              : "Tidak hadir"}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </td>
-                  );
-                })}
-                {/* Summary % */}
-                <td className="sticky right-0 z-10 bg-white group-hover:bg-slate-50/80 px-4 py-2.5 text-center border-l border-border-subtle transition-colors">
-                  <span
-                    className={cn(
-                      "text-sm font-bold tabular-nums",
-                      row.persentaseTepatWaktu >= 80
-                        ? "text-status-green-text"
-                        : row.persentaseTepatWaktu >= 60
-                        ? "text-status-amber-text"
-                        : "text-status-red-text"
+                  })}
+                  
+                  {/* Dominan Titik Tap */}
+                  <td className="px-4 py-2.5 text-center text-sm font-medium text-text-primary">
+                    {dominantTap}
+                  </td>
+                  
+                  {/* Kategori Emisi */}
+                  <td className="px-4 py-2.5 text-center">
+                    {kategoriEmisi !== "—" ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                          kategoriEmisi === "Rendah Emisi"
+                            ? "bg-status-green-bg text-status-green-text"
+                            : kategoriEmisi === "Sedang"
+                            ? "bg-status-amber-bg text-status-amber-text"
+                            : "bg-status-red-bg text-status-red-text"
+                        )}
+                      >
+                        {kategoriEmisi}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-text-muted">—</span>
                     )}
-                  >
-                    {row.persentaseTepatWaktu}%
-                  </span>
-                </td>
-              </tr>
-            ))}
+                  </td>
+
+                  {/* Summary % */}
+                  <td className="sticky right-0 z-10 bg-white group-hover:bg-slate-50/80 px-4 py-2.5 text-center border-l border-border-subtle transition-colors">
+                    <span
+                      className={cn(
+                        "text-sm font-bold tabular-nums",
+                        row.persentaseTepatWaktu >= 80
+                          ? "text-status-green-text"
+                          : row.persentaseTepatWaktu >= 60
+                          ? "text-status-amber-text"
+                          : "text-status-red-text"
+                      )}
+                    >
+                      {row.persentaseTepatWaktu}%
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

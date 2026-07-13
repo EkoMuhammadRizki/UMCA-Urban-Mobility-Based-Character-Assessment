@@ -4,6 +4,7 @@ import { Users, Clock, AlertTriangle, CalendarDays } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { AttendanceDonut } from "@/components/dashboard/attendance-donut";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { EcoSummary } from "@/components/dashboard/eco-summary";
 import { getDashboardSummary, getRecentActivity } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
@@ -106,6 +107,9 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* Eco-awareness section */}
+      <EcoSummary month={currentMonth} year={currentYear} />
     </div>
   );
 }

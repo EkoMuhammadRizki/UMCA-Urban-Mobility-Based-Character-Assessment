@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, User, CreditCard, School, TrendingUp } from "lucide-react";
+import { ArrowLeft, User, CreditCard, School, TrendingUp, Leaf } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -19,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getSiswaDetail } from "@/lib/mock-data";
 import { formatTime, formatFullDate } from "@/lib/utils/date-utils";
 import type { TrenBulanan } from "@/lib/types";
+import { tentukanEcoPoin } from "@/lib/eco-assessment";
+import { cn } from "@/lib/utils";
 
 function TrendTooltip({ active, payload, label }: {
   active?: boolean;
@@ -146,6 +148,24 @@ export default function SiswaDetailPage() {
                   <p className="text-sm font-semibold text-text-primary font-mono">{siswa.nfcTagId}</p>
                 </div>
               </div>
+              {(() => {
+                const activeTaps = siswa.kehadiran.filter((k) => k.status !== "ABSEN" && k.titikTap);
+                const halteCount = activeTaps.filter((k) => k.titikTap === "HALTE").length;
+                const totalActive = activeTaps.length;
+                const percentHalte = totalActive > 0 ? Math.round((halteCount / totalActive) * 100) : 0;
+                
+                return (
+                  <div className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-2.5">
+                    <Leaf className="h-4 w-4 text-green-600" />
+                    <div className="text-left">
+                      <p className="text-xs text-text-muted">Eco-Awareness (Estimasi)</p>
+                      <p className="text-sm font-semibold text-text-primary">
+                        {percentHalte}% Tap Halte
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -240,13 +260,19 @@ export default function SiswaDetailPage() {
                 <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                   Status
                 </th>
+                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                  Titik Tap
+                </th>
+                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                  Estimasi Emisi
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {currentMonthRecords.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={6}
                     className="py-8 text-center text-sm text-text-secondary"
                   >
                     Belum ada data kehadiran bulan ini.
@@ -256,6 +282,9 @@ export default function SiswaDetailPage() {
                 currentMonthRecords.map((record) => {
                   const date = new Date(record.tanggal);
                   const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+                  
+                  const hasTap = !!record.jamTap && !!record.titikTap;
+                  const eco = hasTap ? tentukanEcoPoin(record.titikTap, record.modaTransport) : null;
 
                   return (
                     <tr
@@ -273,6 +302,36 @@ export default function SiswaDetailPage() {
                       </td>
                       <td className="py-3">
                         <StatusBadge status={record.status} />
+                      </td>
+                      <td className="py-3 text-sm text-text-primary">
+                        {record.titikTap
+                          ? record.titikTap === "HALTE"
+                            ? "Halte"
+                            : "Gerbang Sekolah"
+                          : "—"}
+                        {record.modaTransport ? ` (${record.modaTransport})` : ""}
+                      </td>
+                      <td className="py-3">
+                        {eco ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                              eco.kategori === "RENDAH_EMISI"
+                                ? "bg-status-green-bg text-status-green-text"
+                                : eco.kategori === "SEDANG"
+                                ? "bg-status-amber-bg text-status-amber-text"
+                                : "bg-status-red-bg text-status-red-text"
+                            )}
+                          >
+                            {eco.kategori === "RENDAH_EMISI"
+                              ? "Rendah Emisi"
+                              : eco.kategori === "SEDANG"
+                              ? "Sedang"
+                              : "Tinggi Emisi"}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-text-muted">—</span>
+                        )}
                       </td>
                     </tr>
                   );

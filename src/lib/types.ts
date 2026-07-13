@@ -6,6 +6,11 @@ export enum StatusKehadiran {
   ABSEN = "ABSEN",
 }
 
+export enum TitikTap {
+  HALTE = "HALTE",
+  GERBANG_SEKOLAH = "GERBANG_SEKOLAH",
+}
+
 export interface Siswa {
   id: string;
   nama: string;
@@ -23,6 +28,7 @@ export interface Kehadiran {
   status: StatusKehadiran;
   modaTransport?: string | null;
   haltId?: string | null;
+  titikTap?: TitikTap | null;
 }
 
 export interface Guru {
@@ -64,6 +70,8 @@ export interface AktivitasTerbaru {
   jamTap: string;
   status: StatusKehadiran;
   tanggal: string;
+  titikTap?: TitikTap | null;
+  modaTransport?: string | null;
 }
 
 export interface SiswaDetail extends Siswa {

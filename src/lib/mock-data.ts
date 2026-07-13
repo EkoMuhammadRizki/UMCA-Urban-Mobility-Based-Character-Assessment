@@ -3,6 +3,7 @@
 
 import {
   StatusKehadiran,
+  TitikTap,
   type Siswa,
   type Kehadiran,
   type Guru,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/types";
 import { getWeekdaysInMonth, toISODateString, formatMonthYear, formatDayHeader, getMinutesSinceMidnight, formatTime } from "@/lib/utils/date-utils";
 import { calculatePercentage, calculateDistribusi, getFrequentlyLateCount } from "@/lib/utils/attendance-utils";
+import { supabase } from "./supabase";
 
 // ─── Seeded Random ────────────────────────────────────────────
 // Simple seeded pseudo-random for consistent data across renders
@@ -58,13 +60,39 @@ const NAMA_SISWA = [
   "Yusuf Firmansyah",
 ];
 
-export const SISWA_LIST: Siswa[] = NAMA_SISWA.map((nama, index) => ({
-  id: `siswa-${String(index + 1).padStart(3, "0")}`,
-  nama,
-  kelas: "4A",
-  nfcTagId: `NFC-${String(index + 1).padStart(4, "0")}`,
-  sekolahId: SEKOLAH.id,
-}));
+export let SISWA_LIST: Siswa[] = [];
+
+let isSynced = false;
+
+export async function syncDatabaseWithMock() {
+  if (isSynced) return;
+  try {
+    const { data: dbSiswa, error } = await supabase.from("Siswa").select("*");
+    if (error) {
+      console.error("Error fetching students for sync:", error);
+      return;
+    }
+    if (dbSiswa && dbSiswa.length > 0) {
+      SISWA_LIST = dbSiswa.map(s => ({
+        id: s.id,
+        nama: s.nama,
+        kelas: s.kelas,
+        nfcTagId: s.nfcTagId ? s.nfcTagId.trim() : "",
+        sekolahId: s.sekolahId
+      }));
+    } else {
+      SISWA_LIST = [];
+    }
+    isSynced = true;
+  } catch (err) {
+    console.error("Failed to sync Supabase Siswa with mock data list:", err);
+  }
+}
+
+export async function getSiswaList(): Promise<Siswa[]> {
+  await syncDatabaseWithMock();
+  return SISWA_LIST;
+}
 
 // ─── Generate Attendance for a Month ──────────────────────────
 function generateTapTime(date: Date, studentSeed: number): { jamTap: string | null; status: StatusKehadiran } {
@@ -115,6 +143,38 @@ export function generateKehadiran(
       const { jamTap, status } = generateTapTime(day, siswaIdx);
       const dateStr = toISODateString(day);
 
+      let titikTap: TitikTap | null = null;
+      let modaTransport: string | null = null;
+      let haltId: string | null = null;
+
+      if (status !== StatusKehadiran.ABSEN) {
+        const randTap = seededRandom();
+        if (randTap < 0.60) {
+          titikTap = TitikTap.HALTE;
+          haltId = `halt-${String(1 + Math.floor(seededRandom() * 3)).padStart(3, "0")}`; // halt-001, halt-002, halt-003
+          
+          const randModa = seededRandom();
+          if (randModa < 0.50) {
+            modaTransport = "Bus Sekolah";
+          } else if (randModa < 0.80) {
+            modaTransport = "Transjakarta";
+          } else {
+            modaTransport = "Jalan Kaki";
+          }
+        } else {
+          titikTap = TitikTap.GERBANG_SEKOLAH;
+          
+          const randModa = seededRandom();
+          if (randModa < 0.50) {
+            modaTransport = "Motor";
+          } else if (randModa < 0.80) {
+            modaTransport = "Mobil Pribadi";
+          } else {
+            modaTransport = "Jalan Kaki";
+          }
+        }
+      }
+
       records.push({
         id: `kh-${siswa.id}-${dateStr}`,
         siswaId: siswa.id,
@@ -122,8 +182,9 @@ export function generateKehadiran(
         tanggal: dateStr,
         jamTap,
         status,
-        modaTransport: null,
-        haltId: "halt-001",
+        modaTransport,
+        haltId,
+        titikTap,
       });
     });
   });
@@ -131,130 +192,247 @@ export function generateKehadiran(
   return records;
 }
 
+// Helper untuk mengambil data Kehadiran nyata dari Supabase
+async function fetchRealKehadiran(): Promise<Kehadiran[] | null> {
+  try {
+    const { data: dbKehadiran, error } = await supabase
+      .from("Kehadiran")
+      .select("*");
+
+    if (error) {
+      console.error("Error fetching Kehadiran from Supabase:", error);
+      return null;
+    }
+
+    if (dbKehadiran && dbKehadiran.length > 0) {
+      return dbKehadiran.map(r => ({
+        id: r.id,
+        siswaId: r.siswaId,
+        tanggal: r.tanggal,
+        jamTap: r.jamTap,
+        status: r.status as StatusKehadiran,
+        modaTransport: r.modaTransport,
+        haltId: r.haltId,
+        titikTap: r.titikTap as TitikTap,
+        siswa: SISWA_LIST.find(s => s.id === r.siswaId)
+      }));
+    }
+  } catch (e) {
+    console.error("fetchRealKehadiran catch block:", e);
+  }
+  return null;
+}
+
 // ─── Rekap Kehadiran (table data) ─────────────────────────────
-export function getRekapKehadiran(
+export async function getRekapKehadiran(
   month: number,
   year: number,
   kelas?: string
-): RekapKehadiranRow[] {
+): Promise<RekapKehadiranRow[]> {
+  await syncDatabaseWithMock();
+  const realRecords = await fetchRealKehadiran();
   const siswaFiltered = kelas
     ? SISWA_LIST.filter((s) => s.kelas === kelas)
     : SISWA_LIST;
 
-  const allRecords = generateKehadiran(month, year, siswaFiltered);
+  if (realRecords && realRecords.length > 0) {
+    return siswaFiltered.map((siswa) => {
+      const studentRecords = realRecords.filter((r) => r.siswaId === siswa.id);
+      const kehadiranMap: Record<string, Kehadiran> = {};
+      studentRecords.forEach((r) => {
+        kehadiranMap[r.tanggal] = r;
+      });
 
-  return siswaFiltered.map((siswa) => {
-    const records = allRecords.filter((r) => r.siswaId === siswa.id);
-    const kehadiranMap: Record<string, Kehadiran> = {};
-    records.forEach((r) => {
-      kehadiranMap[r.tanggal] = r;
+      return {
+        siswa,
+        kehadiran: kehadiranMap,
+        persentaseTepatWaktu: calculatePercentage(studentRecords),
+      };
     });
+  }
 
-    return {
-      siswa,
-      kehadiran: kehadiranMap,
-      persentaseTepatWaktu: calculatePercentage(records),
-    };
-  });
+  // Jika tidak ada data di DB, return baris kosong (tanpa mock)
+  return siswaFiltered.map((siswa) => ({
+    siswa,
+    kehadiran: {},
+    persentaseTepatWaktu: 0,
+  }));
 }
 
 // ─── Dashboard Summary ────────────────────────────────────────
-export function getDashboardSummary(month: number, year: number): DashboardSummary {
-  const allRecords = generateKehadiran(month, year);
-  const distribusi = calculateDistribusi(allRecords);
+export async function getDashboardSummary(month: number, year: number): Promise<DashboardSummary> {
+  await syncDatabaseWithMock();
+  const realRecords = await fetchRealKehadiran();
   const weekdayCount = getWeekdaysInMonth(month, year).length;
 
+  if (realRecords && realRecords.length > 0) {
+    const distribusi = calculateDistribusi(realRecords);
+    return {
+      totalSiswa: SISWA_LIST.length,
+      rataKetepatanWaktu: calculatePercentage(realRecords),
+      jumlahSeringTelat: getFrequentlyLateCount(realRecords, 3),
+      hariSekolahBulanIni: weekdayCount,
+      distribusiStatus: distribusi,
+    };
+  }
+
+  // Kosongkan dashboard (0%) jika database kosong
   return {
     totalSiswa: SISWA_LIST.length,
-    rataKetepatanWaktu: calculatePercentage(allRecords),
-    jumlahSeringTelat: getFrequentlyLateCount(allRecords, 3),
+    rataKetepatanWaktu: 0,
+    jumlahSeringTelat: 0,
     hariSekolahBulanIni: weekdayCount,
-    distribusiStatus: distribusi,
+    distribusiStatus: { tepatWaktu: 0, telat: 0, absen: 0 },
   };
 }
 
 // ─── Recent Activity ──────────────────────────────────────────
-export function getRecentActivity(count: number = 10): AktivitasTerbaru[] {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  const allRecords = generateKehadiran(month, year);
+export async function getRecentActivity(count: number = 10): Promise<AktivitasTerbaru[]> {
+  await syncDatabaseWithMock();
+  const realRecords = await fetchRealKehadiran();
 
-  // Filter records that have a tap time and sort by tap time descending
-  return allRecords
-    .filter((r) => r.jamTap !== null)
-    .sort((a, b) => new Date(b.jamTap!).getTime() - new Date(a.jamTap!).getTime())
-    .slice(0, count)
-    .map((r) => ({
-      id: r.id,
-      siswa: r.siswa!,
-      jamTap: r.jamTap!,
-      status: r.status,
-      tanggal: r.tanggal,
-    }));
+  if (realRecords && realRecords.length > 0) {
+    return realRecords
+      .filter((r) => r.jamTap !== null)
+      .sort((a, b) => new Date(b.jamTap!).getTime() - new Date(a.jamTap!).getTime())
+      .slice(0, count)
+      .map((r) => ({
+        id: r.id,
+        siswa: r.siswa || {
+          id: r.siswaId,
+          nama: "Siswa Tidak Dikenal",
+          kelas: "—",
+          nfcTagId: "—",
+          sekolahId: "—"
+        },
+        jamTap: r.jamTap!,
+        status: r.status,
+        tanggal: r.tanggal,
+        titikTap: r.titikTap,
+        modaTransport: r.modaTransport,
+      }));
+  }
+
+  return [];
 }
 
 // ─── Chart Data ───────────────────────────────────────────────
-export function getChartDataHarian(
+export async function getChartDataHarian(
   month: number,
   year: number,
   kelas?: string
-): ChartDataHarian[] {
+): Promise<ChartDataHarian[]> {
+  await syncDatabaseWithMock();
+  const realRecords = await fetchRealKehadiran();
   const weekdays = getWeekdaysInMonth(month, year);
-  const siswaFiltered = kelas
-    ? SISWA_LIST.filter((s) => s.kelas === kelas)
-    : SISWA_LIST;
-  const allRecords = generateKehadiran(month, year, siswaFiltered);
 
-  return weekdays.map((day) => {
-    const dateStr = toISODateString(day);
-    const dayRecords = allRecords.filter((r) => r.tanggal === dateStr);
-    const dist = calculateDistribusi(dayRecords);
+  if (realRecords && realRecords.length > 0) {
+    const recordsFiltered = kelas
+      ? realRecords.filter((r) => r.siswa?.kelas === kelas)
+      : realRecords;
 
-    return {
-      tanggal: dateStr,
-      label: formatDayHeader(day),
-      tepatWaktu: dist.tepatWaktu,
-      telat: dist.telat,
-      absen: dist.absen,
-    };
-  });
+    return weekdays.map((day) => {
+      const dateStr = toISODateString(day);
+      const dayRecords = recordsFiltered.filter((r) => r.tanggal === dateStr);
+      const dist = calculateDistribusi(dayRecords);
+
+      return {
+        tanggal: dateStr,
+        label: formatDayHeader(day),
+        tepatWaktu: dist.tepatWaktu,
+        telat: dist.telat,
+        absen: dist.absen,
+      };
+    });
+  }
+
+  // Kembalikan chart kosong
+  return weekdays.map((day) => ({
+    tanggal: toISODateString(day),
+    label: formatDayHeader(day),
+    tepatWaktu: 0,
+    telat: 0,
+    absen: 0,
+  }));
 }
 
-export function getChartDataScatter(
+export async function getChartDataScatter(
   month: number,
   year: number,
   siswaId?: string
-): ChartDataScatter[] {
-  const allRecords = generateKehadiran(month, year);
+): Promise<ChartDataScatter[]> {
+  await syncDatabaseWithMock();
+  const realRecords = await fetchRealKehadiran();
 
-  return allRecords
-    .filter((r) => r.jamTap !== null)
-    .filter((r) => !siswaId || r.siswaId === siswaId)
-    .map((r) => ({
-      tanggal: r.tanggal,
-      label: formatDayHeader(new Date(r.tanggal)),
-      siswaId: r.siswaId,
-      namaSiswa: r.siswa?.nama || "",
-      jamTapMenit: getMinutesSinceMidnight(r.jamTap!),
-      jamTapLabel: formatTime(r.jamTap!),
-      status: r.status,
-    }));
+  if (realRecords && realRecords.length > 0) {
+    return realRecords
+      .filter((r) => r.jamTap !== null)
+      .filter((r) => !siswaId || r.siswaId === siswaId)
+      .map((r) => ({
+        tanggal: r.tanggal,
+        label: formatDayHeader(new Date(r.tanggal)),
+        siswaId: r.siswaId,
+        namaSiswa: r.siswa?.nama || "",
+        jamTapMenit: getMinutesSinceMidnight(r.jamTap!),
+        jamTapLabel: formatTime(r.jamTap!),
+        status: r.status,
+      }));
+  }
+
+  return [];
 }
 
 // ─── Siswa Detail ─────────────────────────────────────────────
-export function getSiswaDetail(siswaId: string): SiswaDetail | null {
+export async function getSiswaDetail(siswaId: string): Promise<SiswaDetail | null> {
+  await syncDatabaseWithMock();
   const siswa = SISWA_LIST.find((s) => s.id === siswaId);
   if (!siswa) return null;
 
+  const realRecords = await fetchRealKehadiran();
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
-  // Collect all attendance records for this student (current month + 2 months back)
   const allKehadiran: Kehadiran[] = [];
   const trenBulanan: TrenBulanan[] = [];
 
+  if (realRecords && realRecords.length > 0) {
+    const studentRecords = realRecords.filter((r) => r.siswaId === siswaId);
+    
+    for (let i = 2; i >= 0; i--) {
+      let m = currentMonth - i;
+      let y = currentYear;
+      if (m < 0) {
+        m += 12;
+        y -= 1;
+      }
+      
+      const monthStr = `${y}-${String(m + 1).padStart(2, "0")}`;
+      const monthRecords = studentRecords.filter((r) => r.tanggal.startsWith(monthStr));
+      allKehadiran.push(...monthRecords);
+
+      const weekdayCount = getWeekdaysInMonth(m, y).length;
+      const dist = calculateDistribusi(monthRecords);
+
+      trenBulanan.push({
+        bulan: monthStr,
+        label: formatMonthYear(m, y),
+        persentaseTepatWaktu: calculatePercentage(monthRecords),
+        totalHariSekolah: weekdayCount,
+        tepatWaktu: dist.tepatWaktu,
+        telat: dist.telat,
+        absen: dist.absen,
+      });
+    }
+
+    return {
+      ...siswa,
+      kehadiran: allKehadiran,
+      trenBulanan,
+    };
+  }
+
+  // Jika tidak ada data absen riil
   for (let i = 2; i >= 0; i--) {
     let m = currentMonth - i;
     let y = currentYear;
@@ -263,28 +441,114 @@ export function getSiswaDetail(siswaId: string): SiswaDetail | null {
       y -= 1;
     }
 
-    const monthRecords = generateKehadiran(m, y, [siswa]).filter(
-      (r) => r.siswaId === siswaId
-    );
-    allKehadiran.push(...monthRecords);
-
-    const weekdayCount = getWeekdaysInMonth(m, y).length;
-    const dist = calculateDistribusi(monthRecords);
-
     trenBulanan.push({
       bulan: `${y}-${String(m + 1).padStart(2, "0")}`,
       label: formatMonthYear(m, y),
-      persentaseTepatWaktu: calculatePercentage(monthRecords),
-      totalHariSekolah: weekdayCount,
-      tepatWaktu: dist.tepatWaktu,
-      telat: dist.telat,
-      absen: dist.absen,
+      persentaseTepatWaktu: 0,
+      totalHariSekolah: getWeekdaysInMonth(m, y).length,
+      tepatWaktu: 0,
+      telat: 0,
+      absen: 0,
     });
   }
 
   return {
     ...siswa,
-    kehadiran: allKehadiran,
+    kehadiran: [],
     trenBulanan,
+  };
+}
+
+export interface EcoDashboardData {
+  hariIni: {
+    totalTaps: number;
+    halteTaps: number;
+    gerbangTaps: number;
+    haltePercentage: number;
+    gerbangPercentage: number;
+  };
+  sebaranMingguan: {
+    tanggal: string;
+    label: string;
+    halte: number;
+    gerbang: number;
+  }[];
+  leaderboard: {
+    kelas: string;
+    waliKelas: string;
+    skorEcoPoin: number;
+    kategori: "RENDAH_EMISI" | "SEDANG" | "POTENSI_TINGGI_EMISI";
+  }[];
+}
+
+export async function getEcoDashboardSummary(month: number, year: number): Promise<EcoDashboardData> {
+  await syncDatabaseWithMock();
+  const realRecords = await fetchRealKehadiran();
+  const weekdays = getWeekdaysInMonth(month, year);
+
+  if (realRecords && realRecords.length > 0) {
+    const recordsWithTap = realRecords.filter((r) => r.jamTap !== null);
+    const lastTapDate = recordsWithTap.length > 0
+      ? recordsWithTap.sort((a, b) => new Date(b.jamTap!).getTime() - new Date(a.jamTap!).getTime())[0].tanggal
+      : toISODateString(weekdays[weekdays.length - 1]);
+
+    const todayRecords = realRecords.filter((r) => r.tanggal === lastTapDate && r.status !== StatusKehadiran.ABSEN);
+    const totalTaps = todayRecords.length;
+    const halteTaps = todayRecords.filter((r) => r.titikTap === TitikTap.HALTE).length;
+    const gerbangTaps = todayRecords.filter((r) => r.titikTap === TitikTap.GERBANG_SEKOLAH).length;
+
+    const haltePercentage = totalTaps > 0 ? Math.round((halteTaps / totalTaps) * 100) : 0;
+    const gerbangPercentage = totalTaps > 0 ? Math.round((gerbangTaps / totalTaps) * 100) : 0;
+
+    const last5Days = weekdays.slice(-5);
+    const sebaranMingguan = last5Days.map((day) => {
+      const dateStr = toISODateString(day);
+      const dayRecords = realRecords.filter((r) => r.tanggal === dateStr && r.status !== StatusKehadiran.ABSEN);
+
+      return {
+        tanggal: dateStr,
+        label: formatDayHeader(day),
+        halte: dayRecords.filter((r) => r.titikTap === TitikTap.HALTE).length,
+        gerbang: dayRecords.filter((r) => r.titikTap === TitikTap.GERBANG_SEKOLAH).length,
+      };
+    });
+
+    const leaderboard = [
+      { kelas: "4A", waliKelas: "Bu Ratna Dewi", skorEcoPoin: 85, kategori: "RENDAH_EMISI" as const },
+      { kelas: "4B", waliKelas: "Pak Budi", skorEcoPoin: 76, kategori: "RENDAH_EMISI" as const },
+      { kelas: "5A", waliKelas: "Bu Sita", skorEcoPoin: 65, kategori: "SEDANG" as const },
+      { kelas: "3B", waliKelas: "Pak Joko", skorEcoPoin: 58, kategori: "SEDANG" as const },
+      { kelas: "6A", waliKelas: "Bu Ani", skorEcoPoin: 38, kategori: "POTENSI_TINGGI_EMISI" as const },
+    ];
+
+    return {
+      hariIni: {
+        totalTaps,
+        halteTaps,
+        gerbangTaps,
+        haltePercentage,
+        gerbangPercentage,
+      },
+      sebaranMingguan,
+      leaderboard,
+    };
+  }
+
+  // Eco-Summary kosong
+  return {
+    hariIni: {
+      totalTaps: 0,
+      halteTaps: 0,
+      gerbangTaps: 0,
+      haltePercentage: 0,
+      gerbangPercentage: 0,
+    },
+    sebaranMingguan: weekdays.slice(-5).map((day) => ({
+      tanggal: toISODateString(day),
+      label: formatDayHeader(day),
+      halte: 0,
+      gerbang: 0,
+    })),
+    leaderboard: [],
   };
 }

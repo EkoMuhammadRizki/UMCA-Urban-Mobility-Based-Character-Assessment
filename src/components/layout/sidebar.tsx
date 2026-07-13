@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 import {
   LayoutDashboard,
@@ -47,6 +48,17 @@ export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A"
   const router = useRouter();
   const [nama, setNama] = useState(guruNama);
   const [role, setRole] = useState(guruRole);
+
+  // Poll status pembaca NFC aktif setiap 5 detik
+  const { data: readerStatus } = useQuery({
+    queryKey: ["nfc-reader-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/reader/status");
+      if (!res.ok) return { active: false };
+      return res.json();
+    },
+    refetchInterval: 5000, // polling tiap 5 detik
+  });
 
   useEffect(() => {
     const storedNama = localStorage.getItem("user_nama");
@@ -121,12 +133,27 @@ export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A"
 
       {/* NFC Status */}
       <div className="mx-4 mb-4 rounded-xl bg-white/5 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </span>
-          <span className="text-xs text-slate-400">NFC Reader Aktif</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              {readerStatus?.active ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </>
+              ) : (
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500"></span>
+              )}
+            </span>
+            <span className="text-xs font-semibold text-slate-300">
+              {readerStatus?.active ? "NFC Reader Aktif" : "NFC Reader Offline"}
+            </span>
+          </div>
+          {readerStatus?.active && readerStatus?.lokasiLabel && (
+            <p className="text-[10px] text-slate-400 pl-4 truncate">
+              {readerStatus.lokasiLabel}
+            </p>
+          )}
         </div>
       </div>
 

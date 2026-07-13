@@ -10,7 +10,7 @@ import {
   getRekapKehadiran,
   getChartDataHarian,
   getChartDataScatter,
-  SISWA_LIST,
+  getSiswaList,
 } from "@/lib/mock-data";
 
 export default function RekapKehadiranPage() {
@@ -18,7 +18,13 @@ export default function RekapKehadiranPage() {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedSiswa, setSelectedSiswa] = useState("");
-  const [selectedKelas, setSelectedKelas] = useState("4A");
+  const [selectedKelas, setSelectedKelas] = useState(""); // Default ke Semua Kelas agar siswa 4-A langsung tampil
+
+  // Fetch siswa list
+  const { data: siswaList } = useQuery({
+    queryKey: ["siswa-list"],
+    queryFn: () => getSiswaList(),
+  });
 
   // Fetch rekap data
   const { data: rekapData, isLoading: rekapLoading } = useQuery({
@@ -45,10 +51,10 @@ export default function RekapKehadiranPage() {
 
   const siswaListForFilter = useMemo(
     () =>
-      SISWA_LIST.filter((s) => !selectedKelas || s.kelas === selectedKelas).map(
+      (siswaList || []).filter((s) => !selectedKelas || s.kelas === selectedKelas).map(
         (s) => ({ id: s.id, nama: s.nama })
       ),
-    [selectedKelas]
+    [siswaList, selectedKelas]
   );
 
   const handleMonthSelect = (month: number, year: number) => {
@@ -58,9 +64,9 @@ export default function RekapKehadiranPage() {
 
   // Available classes (from mock data)
   const kelasList = useMemo(() => {
-    const classes = new Set(SISWA_LIST.map((s) => s.kelas));
+    const classes = new Set((siswaList || []).map((s) => s.kelas));
     return Array.from(classes).sort();
-  }, []);
+  }, [siswaList]);
 
   return (
     <div className="space-y-6 animate-fade-in">

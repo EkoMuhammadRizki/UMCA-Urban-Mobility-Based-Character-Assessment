@@ -1,0 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl) {
+  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable.");
+}
+
+// Client global Supabase. 
+// Menggunakan Service Role Key di server untuk menulis data tanpa batasan RLS (Row Level Security),
+// dan fallback ke Anon Key jika dimuat di client side.
+export const supabase = createClient(supabaseUrl, supabaseServiceKey || "");

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Users, Search } from "lucide-react";
-import { SISWA_LIST } from "@/lib/mock-data";
+import { getSiswaList } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useMemo } from "react";
 
@@ -12,7 +12,7 @@ export default function SiswaListPage() {
 
   const { data: siswaList, isLoading } = useQuery({
     queryKey: ["siswa-list"],
-    queryFn: () => SISWA_LIST,
+    queryFn: () => getSiswaList(),
   });
 
   const filteredSiswa = useMemo(() => {
