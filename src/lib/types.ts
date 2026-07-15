@@ -44,6 +44,7 @@ export interface Sekolah {
   nama: string;
   jamMasuk: string; // "07:00" format
   toleransiMenit: number;
+  aturanJam?: { hari: string; jamMasuk: string; tenggat?: string }[];
 }
 
 export interface DashboardSummary {

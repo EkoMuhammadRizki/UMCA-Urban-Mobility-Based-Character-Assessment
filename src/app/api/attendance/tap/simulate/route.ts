@@ -140,10 +140,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Hitung status kehadiran (Tepat Waktu / Telat)
+    // Dapatkan batas waktu harian dari aturanJam (gunakan tenggat jika ada, fallback ke jamMasuk)
+    let thresholdTime = sekolah.jamMasuk || "07:00";
+    if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam)) {
+      const DAYS_INDONESIAN = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+      const dayName = DAYS_INDONESIAN[tapDate.getDay()];
+      const rule = sekolah.aturanJam.find((r: any) => r.hari === dayName);
+      if (rule) {
+        thresholdTime = rule.tenggat || rule.jamMasuk || thresholdTime;
+      }
+    }
+
     const status = calculateAttendanceStatus(
       tapDate,
-      sekolah.jamMasuk,
-      sekolah.toleransiMenit
+      thresholdTime,
+      0 // toleransiMenit diatur ke 0 karena batas deadline sudah ditentukan oleh tenggat
     );
 
     // 8. Hitung penilaian eco-awareness (Poin, Kategori, Emisi)

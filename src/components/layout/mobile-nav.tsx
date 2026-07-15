@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   Users,
   Settings,
+  Clock,
 } from "lucide-react";
 
 const navItems = [
@@ -24,6 +25,11 @@ const navItems = [
     label: "Siswa",
     href: "/guru/siswa",
     icon: Users,
+  },
+  {
+    label: "Jam Sekolah",
+    href: "/guru/aturan-jam-sekolah",
+    icon: Clock,
   },
   {
     label: "Pengaturan",

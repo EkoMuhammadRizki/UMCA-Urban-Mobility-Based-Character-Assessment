@@ -11,6 +11,7 @@ import {
   CalendarCheck,
   Users,
   Settings,
+  Clock,
   Wifi,
   LogOut,
 } from "lucide-react";
@@ -30,6 +31,11 @@ const menuItems = [
     label: "Data Siswa",
     href: "/guru/siswa",
     icon: Users,
+  },
+  {
+    label: "Aturan Jam Sekolah",
+    href: "/guru/aturan-jam-sekolah",
+    icon: Clock,
   },
   {
     label: "Pengaturan",
