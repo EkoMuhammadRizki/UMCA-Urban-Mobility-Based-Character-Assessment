@@ -1,6 +1,6 @@
 import { TitikTap } from "@/lib/types";
 
-export type KategoriEmisi = "RENDAH_EMISI" | "SEDANG" | "POTENSI_TINGGI_EMISI";
+export type KategoriEmisi = "RENDAH_EMISI" | "POTENSI_TINGGI_EMISI";
 
 export interface EcoAssessmentResult {
   skorEcoPoin: number;
@@ -15,7 +15,7 @@ export interface EcoAssessmentResult {
  * - If modaTransport is null/undefined, falls back to titikTap proxy:
  *   - HALTE -> Mass transit assumption (RENDAH_EMISI)
  *   - GERBANG_SEKOLAH -> Private vehicle assumption (POTENSI_TINGGI_EMISI)
- * - If no details are available or unknown, falls back to SEDANG (neutral).
+ * - If no details are available or unknown, falls back to POTENSI_TINGGI_EMISI.
  * 
  * NOTE: Values are rough estimates for indicator purposes only, not precision measurements.
  */
@@ -55,7 +55,7 @@ export function tentukanEcoPoin(
       };
     }
 
-    // Two-wheeler (Medium emission per passenger)
+    // Two-wheeler (Medium emission per passenger -> grouped into POTENSI_TINGGI_EMISI)
     if (
       normalized === "motor" ||
       normalized === "ojek" ||
@@ -64,7 +64,7 @@ export function tentukanEcoPoin(
     ) {
       return {
         skorEcoPoin: 40,
-        kategori: "SEDANG",
+        kategori: "POTENSI_TINGGI_EMISI",
         estimasiKgCO2: 0.4,
       };
     }
@@ -87,7 +87,7 @@ export function tentukanEcoPoin(
     // Fallback for unrecognized modaTransport
     return {
       skorEcoPoin: 50,
-      kategori: "SEDANG",
+      kategori: "POTENSI_TINGGI_EMISI",
       estimasiKgCO2: 0.5,
     };
   }
@@ -114,7 +114,7 @@ export function tentukanEcoPoin(
   // 3. Fallback when there's no data (absen or unknown)
   return {
     skorEcoPoin: 0,
-    kategori: "SEDANG",
+    kategori: "POTENSI_TINGGI_EMISI",
     estimasiKgCO2: 0.0,
   };
 }
@@ -126,8 +126,6 @@ export function getKategoriEmisiLabel(kategori: KategoriEmisi): string {
   switch (kategori) {
     case "RENDAH_EMISI":
       return "Rendah Emisi";
-    case "SEDANG":
-      return "Sedang";
     case "POTENSI_TINGGI_EMISI":
       return "Potensi Tinggi Emisi";
     default:

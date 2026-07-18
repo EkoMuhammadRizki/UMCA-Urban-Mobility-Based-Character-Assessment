@@ -318,15 +318,11 @@ export default function SiswaDetailPage() {
                               "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
                               eco.kategori === "RENDAH_EMISI"
                                 ? "bg-status-green-bg text-status-green-text"
-                                : eco.kategori === "SEDANG"
-                                ? "bg-status-amber-bg text-status-amber-text"
                                 : "bg-status-red-bg text-status-red-text"
                             )}
                           >
                             {eco.kategori === "RENDAH_EMISI"
                               ? "Rendah Emisi"
-                              : eco.kategori === "SEDANG"
-                              ? "Sedang"
                               : "Tinggi Emisi"}
                           </span>
                         ) : (

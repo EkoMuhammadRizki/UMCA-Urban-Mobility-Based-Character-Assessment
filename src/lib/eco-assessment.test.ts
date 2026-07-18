@@ -31,7 +31,7 @@ function runTests() {
     const res4 = tentukanEcoPoin(TitikTap.HALTE, "Teleportasi");
     console.log("Skenario 4 (HALTE, 'Teleportasi'):", res4);
     assert(res4.skorEcoPoin === 50, "Skenario 4: Skor harus 50");
-    assert(res4.kategori === "SEDANG", "Skenario 4: Kategori harus SEDANG");
+    assert(res4.kategori === "POTENSI_TINGGI_EMISI", "Skenario 4: Kategori harus POTENSI_TINGGI_EMISI");
     assert(res4.estimasiKgCO2 === 0.5, "Skenario 4: Estimasi CO2 harus 0.5");
 
     console.log("\n✅ Semua Unit Test Berhasil! 🎉");

@@ -516,8 +516,8 @@ export async function getEcoDashboardSummary(month: number, year: number): Promi
     const leaderboard = [
       { kelas: "4A", waliKelas: "Bu Ratna Dewi", skorEcoPoin: 85, kategori: "RENDAH_EMISI" as const },
       { kelas: "4B", waliKelas: "Pak Budi", skorEcoPoin: 76, kategori: "RENDAH_EMISI" as const },
-      { kelas: "5A", waliKelas: "Bu Sita", skorEcoPoin: 65, kategori: "SEDANG" as const },
-      { kelas: "3B", waliKelas: "Pak Joko", skorEcoPoin: 58, kategori: "SEDANG" as const },
+      { kelas: "5A", waliKelas: "Bu Sita", skorEcoPoin: 65, kategori: "RENDAH_EMISI" as const },
+      { kelas: "3B", waliKelas: "Pak Joko", skorEcoPoin: 58, kategori: "POTENSI_TINGGI_EMISI" as const },
       { kelas: "6A", waliKelas: "Bu Ani", skorEcoPoin: 38, kategori: "POTENSI_TINGGI_EMISI" as const },
     ];
 

@@ -164,7 +164,6 @@ export function EcoSummary({ month, year }: EcoSummaryProps) {
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                         item.kategori === "RENDAH_EMISI" ? "bg-status-green-bg text-status-green-text" :
-                        item.kategori === "SEDANG" ? "bg-status-amber-bg text-status-amber-text" :
                         "bg-status-red-bg text-status-red-text"
                       }`}>
                         {item.skorEcoPoin} pts
