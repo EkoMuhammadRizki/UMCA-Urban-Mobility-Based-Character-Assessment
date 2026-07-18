@@ -118,6 +118,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Cek hari sekolah (Hanya Senin - Jumat yang diizinkan untuk absensi)
+    const dayOfWeek = tapDate.getDay(); // 0 = Minggu, 6 = Sabtu
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return NextResponse.json(
+        { success: false, error: "Absensi ditolak. Absensi hanya dapat dicatat pada hari Senin - Jumat." },
+        { status: 403 }
+      );
+    }
+
     // 5. Normalisasi tanggal ke YYYY-MM-DD
     const year = tapDate.getFullYear();
     const month = String(tapDate.getMonth() + 1).padStart(2, "0");
