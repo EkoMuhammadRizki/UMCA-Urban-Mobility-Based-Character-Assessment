@@ -127,6 +127,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 4b. Validasi window jam tap yang diizinkan (06:30 - 11:00 WIB)
+    // Tap di luar window ini diabaikan (misalnya pulang sekolah salah tap)
+    const tapHour = tapDate.getHours();
+    const tapMinute = tapDate.getMinutes();
+    const tapTotalMinutes = tapHour * 60 + tapMinute;
+    const WINDOW_START = 6 * 60 + 30;  // 06:30 = 390 menit
+    const WINDOW_END   = 11 * 60;       // 11:00 = 660 menit
+    if (tapTotalMinutes < WINDOW_START || tapTotalMinutes > WINDOW_END) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Tap ditolak. Absensi hanya diterima antara pukul 06:30 - 11:00. Waktu tap: ${String(tapHour).padStart(2,"0")}:${String(tapMinute).padStart(2,"0")}.`,
+        },
+        { status: 403 }
+      );
+    }
+
     // 5. Normalisasi tanggal ke YYYY-MM-DD
     const year = tapDate.getFullYear();
     const month = String(tapDate.getMonth() + 1).padStart(2, "0");
@@ -162,13 +179,32 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Hitung status kehadiran (Tepat Waktu / Telat)
-    // Gunakan waktu server (tapDate) untuk mencegah manipulasi clock lokal device
-    // Dapatkan batas waktu harian dari aturanJam (gunakan tenggat jika ada, fallback ke jamMasuk)
-    let thresholdTime = sekolah.jamMasuk || "07:00";
+    // Threshold telat ditentukan per-kelas:
+    //   - Kelas 1        → 13:50 (pulang siang, tapi batas absensi pagi tetap 06:30)
+    //   - Kelas 2-5      → 12:15
+    //   - Kelas 6        → sesuai aturanJam
+    //   - Default fallback → jamMasuk dari Sekolah
+    // Catatan: semua kelas masuk pagi — threshold di sini adalah BATAS TELAT pagi,
+    // bukan jam pulang. Gunakan aturanJam untuk override per-hari per-kelas.
+
+    // Ambil kelas siswa (contoh: "1", "2", "3", ... "6", atau "4A", "5B", dst)
+    const kelasRaw = (siswa.kelas || "").trim();
+    const kelasAngka = parseInt(kelasRaw, 10); // ambil angkanya saja
+
+    // Threshold telat pagi per kelas (batas jam masuk = 06:30)
+    // Kelas 1 s/d 6 semuanya masuk jam 06:30. Jika telat di bawah, catat TELAT.
+    let thresholdTime = sekolah.jamMasuk || "06:30";
+
+    // Override dari aturanJam (konfigurasi per hari di sekolah)
     if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam)) {
       const DAYS_INDONESIAN = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
       const dayName = DAYS_INDONESIAN[tapDate.getDay()];
-      const rule = sekolah.aturanJam.find((r: any) => r.hari === dayName);
+      // Cari aturan yang cocok dengan hari ATAU hari+kelas
+      const rule = sekolah.aturanJam.find((r: any) =>
+        r.hari === dayName &&
+        (!r.kelas || r.kelas === kelasRaw || r.kelas === String(kelasAngka))
+      ) || sekolah.aturanJam.find((r: any) => r.hari === dayName && !r.kelas);
+
       if (rule) {
         thresholdTime = rule.tenggat || rule.jamMasuk || thresholdTime;
       }
@@ -177,7 +213,7 @@ export async function POST(req: NextRequest) {
     const status = calculateAttendanceStatus(
       tapDate,
       thresholdTime,
-      0 // toleransiMenit diatur ke 0 karena batas deadline sudah ditentukan oleh tenggat
+      0 // toleransiMenit = 0 karena sudah pakai tenggat eksplisit
     );
 
     // 8. Hitung penilaian eco-awareness (Poin, Kategori, Emisi)

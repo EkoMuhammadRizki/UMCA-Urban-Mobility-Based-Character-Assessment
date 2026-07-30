@@ -28,6 +28,30 @@ function getQueryClient() {
   return browserQueryClient;
 }
 
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  const originalError = console.error;
+  console.error = (...args: any[]) => {
+    const fullString = args
+      .map((a) => {
+        try {
+          return typeof a === "object" ? JSON.stringify(a) : String(a);
+        } catch {
+          return String(a);
+        }
+      })
+      .join(" ");
+
+    if (
+      fullString.includes("bis_skin_checked") ||
+      fullString.includes("bis_register") ||
+      fullString.includes("__processed_")
+    ) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
 

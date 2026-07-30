@@ -60,7 +60,15 @@ const NAMA_SISWA = [
   "Yusuf Firmansyah",
 ];
 
-export let SISWA_LIST: Siswa[] = [];
+export const DEFAULT_MOCK_SISWA: Siswa[] = NAMA_SISWA.map((nama, idx) => ({
+  id: `siswa-${String(idx + 1).padStart(3, "0")}`,
+  nama,
+  kelas: "4A",
+  nfcTagId: idx === 0 ? "8159FF7B" : `NFC-4A-${String(idx + 1).padStart(3, "0")}`,
+  sekolahId: "sekolah-001",
+}));
+
+export let SISWA_LIST: Siswa[] = DEFAULT_MOCK_SISWA;
 
 let isSynced = false;
 
@@ -69,7 +77,9 @@ export async function syncDatabaseWithMock() {
   try {
     const { data: dbSiswa, error } = await supabase.from("Siswa").select("*");
     if (error) {
-      console.error("Error fetching students for sync:", error);
+      console.warn("Could not fetch students from Supabase (using mock data fallback):", error.message || JSON.stringify(error));
+      SISWA_LIST = DEFAULT_MOCK_SISWA;
+      isSynced = true;
       return;
     }
     if (dbSiswa && dbSiswa.length > 0) {
@@ -81,11 +91,13 @@ export async function syncDatabaseWithMock() {
         sekolahId: s.sekolahId
       }));
     } else {
-      SISWA_LIST = [];
+      SISWA_LIST = DEFAULT_MOCK_SISWA;
     }
     isSynced = true;
-  } catch (err) {
-    console.error("Failed to sync Supabase Siswa with mock data list:", err);
+  } catch (err: any) {
+    console.warn("Failed to sync Supabase Siswa (using mock data fallback):", err?.message || err);
+    SISWA_LIST = DEFAULT_MOCK_SISWA;
+    isSynced = true;
   }
 }
 
@@ -200,7 +212,7 @@ async function fetchRealKehadiran(): Promise<Kehadiran[] | null> {
       .select("*");
 
     if (error) {
-      console.error("Error fetching Kehadiran from Supabase:", error);
+      console.warn("Could not fetch Kehadiran from Supabase (using mock data fallback):", error.message || JSON.stringify(error));
       return null;
     }
 
@@ -217,8 +229,8 @@ async function fetchRealKehadiran(): Promise<Kehadiran[] | null> {
         siswa: SISWA_LIST.find(s => s.id === r.siswaId)
       }));
     }
-  } catch (e) {
-    console.error("fetchRealKehadiran catch block:", e);
+  } catch (e: any) {
+    console.warn("fetchRealKehadiran catch block (using mock data fallback):", e?.message || e);
   }
   return null;
 }
