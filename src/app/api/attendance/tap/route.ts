@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { calculateAttendanceStatus } from "@/lib/utils/attendance-utils";
 import { tentukanEcoPoin } from "@/lib/eco-assessment";
-import { StatusKehadiran } from "@/lib/types";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -31,9 +30,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Untuk kebenaran perhitungan, gunakan waktu server saat menerima request
-    // untuk mencegah clock drift pada device reader lokal, namun parsing timestamp
-    // dari client jika diperlukan untuk auditing.
-    const tapDate = new Date(); // server time
+    // untuk mencegah clock drift pada device reader lokal.
+    const tapDate = new Date(); // server time (UTC saat di-deploy)
     const clientTapDate = new Date(timestamp);
     if (isNaN(clientTapDate.getTime())) {
       return NextResponse.json(
@@ -41,6 +39,17 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Konversi ke WIB (UTC+7) untuk semua perhitungan jam/hari.
+    // Server berjalan di UTC saat di-deploy; tanpa konversi ini, getDay()/getHours()
+    // akan menghasilkan hari/jam yang salah untuk timezone Indonesia.
+    const WIB_OFFSET = 7 * 60; // menit
+    const tapWibMs = tapDate.getTime() + WIB_OFFSET * 60 * 1000;
+    const tapWib = new Date(tapWibMs);
+    // String "HH:mm" dalam WIB — dipakai untuk perbandingan threshold
+    const tapHhmm = `${String(tapWib.getUTCHours()).padStart(2, "0")}:${String(tapWib.getUTCMinutes()).padStart(2, "0")}`;
+    // Nama hari dalam WIB
+    const tapWibDay = tapWib.getUTCDay();
 
     // 3. Cari NfcReader berdasarkan deviceId & validasi secret key
     const { data: reader, error: readerError } = await supabase
@@ -118,36 +127,57 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Cek hari sekolah (Hanya Senin - Jumat yang diizinkan untuk absensi)
-    const dayOfWeek = tapDate.getDay(); // 0 = Minggu, 6 = Sabtu
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    // Cek hari sekolah dalam WIB (Hanya Senin - Jumat yang diizinkan untuk absensi)
+    if (tapWibDay === 0 || tapWibDay === 6) {
       return NextResponse.json(
         { success: false, error: "Absensi ditolak. Absensi hanya dapat dicatat pada hari Senin - Jumat." },
         { status: 403 }
       );
     }
 
-    // 4b. Validasi window jam tap yang diizinkan (06:30 - 11:00 WIB)
-    // Tap di luar window ini diabaikan (misalnya pulang sekolah salah tap)
-    const tapHour = tapDate.getHours();
-    const tapMinute = tapDate.getMinutes();
-    const tapTotalMinutes = tapHour * 60 + tapMinute;
-    const WINDOW_START = 6 * 60 + 30;  // 06:30 = 390 menit
-    const WINDOW_END   = 11 * 60;       // 11:00 = 660 menit
-    if (tapTotalMinutes < WINDOW_START || tapTotalMinutes > WINDOW_END) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Tap ditolak. Absensi hanya diterima antara pukul 06:30 - 11:00. Waktu tap: ${String(tapHour).padStart(2,"0")}:${String(tapMinute).padStart(2,"0")}.`,
-        },
-        { status: 403 }
-      );
+    // 4b. Validasi window jam tap yang diizinkan (WIB)
+    // Window ditentukan secara dinamis dari aturanJam hari ini:
+    //   - WINDOW_START = jamMasuk hari ini − 30 menit (buffer kedatangan awal)
+    //   - WINDOW_END   = tenggat hari ini (batas akhir absensi diterima)
+    // Jika aturanJam belum dikonfigurasi, fallback ke window default 06:30–11:00.
+    {
+      const DAYS_INDONESIAN_WINDOW = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+      const dayNameForWindow = DAYS_INDONESIAN_WINDOW[tapWibDay];
+      let windowStartMinutes = 6 * 60 + 30; // default 06:30
+      let windowEndMinutes   = 11 * 60;      // default 11:00
+
+      if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam) && sekolah.aturanJam.length > 0) {
+        const ruleForWindow = sekolah.aturanJam.find((r: any) => r.hari === dayNameForWindow && !r.kelas)
+          ?? sekolah.aturanJam.find((r: any) => r.hari === dayNameForWindow);
+        if (ruleForWindow) {
+          const [jmH, jmM] = (ruleForWindow.jamMasuk || "07:00").split(":").map(Number);
+          const [tgH, tgM] = (ruleForWindow.tenggat || ruleForWindow.jamMasuk || "07:00").split(":").map(Number);
+          // Buffer kedatangan 60 menit sebelum jam masuk, minimal jam 05:00
+          windowStartMinutes = Math.max(5 * 60, jmH * 60 + jmM - 60);
+          windowEndMinutes   = tgH * 60 + tgM;
+        }
+      }
+
+      // tapHhmm sudah dalam WIB — konversi ke menit untuk perbandingan
+      const [tapH, tapM] = tapHhmm.split(":").map(Number);
+      const tapTotalMinutes = tapH * 60 + tapM;
+      if (tapTotalMinutes < windowStartMinutes || tapTotalMinutes > windowEndMinutes) {
+        const fmt = (m: number) =>
+          `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Tap ditolak. Absensi hanya diterima antara pukul ${fmt(windowStartMinutes)} - ${fmt(windowEndMinutes)}. Waktu tap: ${tapHhmm} WIB.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
-    // 5. Normalisasi tanggal ke YYYY-MM-DD
-    const year = tapDate.getFullYear();
-    const month = String(tapDate.getMonth() + 1).padStart(2, "0");
-    const day = String(tapDate.getDate()).padStart(2, "0");
+    // 5. Normalisasi tanggal ke YYYY-MM-DD dalam WIB
+    const year = tapWib.getUTCFullYear();
+    const month = String(tapWib.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(tapWib.getUTCDate()).padStart(2, "0");
     const dateStr = `${year}-${month}-${day}`;
 
     // 6. Cek duplikasi tap di hari yang sama
@@ -179,42 +209,33 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Hitung status kehadiran (Tepat Waktu / Telat)
-    // Threshold telat ditentukan per-kelas:
-    //   - Kelas 1        → 13:50 (pulang siang, tapi batas absensi pagi tetap 06:30)
-    //   - Kelas 2-5      → 12:15
-    //   - Kelas 6        → sesuai aturanJam
-    //   - Default fallback → jamMasuk dari Sekolah
-    // Catatan: semua kelas masuk pagi — threshold di sini adalah BATAS TELAT pagi,
-    // bukan jam pulang. Gunakan aturanJam untuk override per-hari per-kelas.
+    // Gunakan dayName dan tapHhmm dalam WIB — timezone-safe
+    const DAYS_INDONESIAN = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const dayName = DAYS_INDONESIAN[tapWibDay];
 
-    // Ambil kelas siswa (contoh: "1", "2", "3", ... "6", atau "4A", "5B", dst)
     const kelasRaw = (siswa.kelas || "").trim();
-    const kelasAngka = parseInt(kelasRaw, 10); // ambil angkanya saja
+    const kelasAngka = parseInt(kelasRaw, 10);
 
-    // Threshold telat pagi per kelas (batas jam masuk = 06:30)
-    // Kelas 1 s/d 6 semuanya masuk jam 06:30. Jika telat di bawah, catat TELAT.
-    let thresholdTime = sekolah.jamMasuk || "06:30";
+    let thresholdTime: string = sekolah.jamMasuk || "07:00";
 
-    // Override dari aturanJam (konfigurasi per hari di sekolah)
-    if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam)) {
-      const DAYS_INDONESIAN = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-      const dayName = DAYS_INDONESIAN[tapDate.getDay()];
-      // Cari aturan yang cocok dengan hari ATAU hari+kelas
-      const rule = sekolah.aturanJam.find((r: any) =>
+    if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam) && sekolah.aturanJam.length > 0) {
+      const ruleWithKelas = sekolah.aturanJam.find((r: any) =>
         r.hari === dayName &&
-        (!r.kelas || r.kelas === kelasRaw || r.kelas === String(kelasAngka))
-      ) || sekolah.aturanJam.find((r: any) => r.hari === dayName && !r.kelas);
-
+        r.kelas &&
+        (r.kelas === kelasRaw || r.kelas === String(kelasAngka))
+      );
+      const ruleForDay = sekolah.aturanJam.find(
+        (r: any) => r.hari === dayName && !r.kelas
+      );
+      const rule = ruleWithKelas ?? ruleForDay;
       if (rule) {
         thresholdTime = rule.tenggat || rule.jamMasuk || thresholdTime;
       }
     }
 
-    const status = calculateAttendanceStatus(
-      tapDate,
-      thresholdTime,
-      0 // toleransiMenit = 0 karena sudah pakai tenggat eksplisit
-    );
+    // Bandingkan jam WIB (string "HH:mm") dengan threshold — timezone-safe
+    const status = calculateAttendanceStatus(tapHhmm, thresholdTime, 0);
+
 
     // 8. Hitung penilaian eco-awareness (Poin, Kategori, Emisi)
     const ecoResult = tentukanEcoPoin(reader.titikTap, modaTransport);

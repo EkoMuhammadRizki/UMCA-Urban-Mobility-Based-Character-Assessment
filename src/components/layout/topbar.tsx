@@ -12,7 +12,7 @@ interface TopbarProps {
 }
 
 export function Topbar({
-  sekolahNama = "SDN 1 Kota Jakarta",
+  sekolahNama = "SDI AL-Irsyadiah",
   guruNama = "Bu Ratna Dewi",
 }: TopbarProps) {
   const router = useRouter();
@@ -54,13 +54,7 @@ export function Topbar({
           <School className="h-3.5 w-3.5 md:h-4 md:w-4 text-brand-600 flex-shrink-0" />
           <span className="font-medium text-text-primary truncate">{sekolahNama}</span>
         </div>
-        <div className="hidden sm:flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </span>
-          <span className="font-medium text-green-700">Sistem Aktif</span>
-        </div>
+
       </div>
 
       {/* Right: Notification + Profile + Logout (Mobile) */}

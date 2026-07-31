@@ -4,30 +4,50 @@ import { StatusKehadiran } from "@/lib/types";
 import type { Kehadiran } from "@/lib/types";
 
 /**
- * Calculate attendance status based on tap time vs school start time.
- * @param jamTap - The tap timestamp (Date or ISO string)
- * @param jamMasuk - School start time in "HH:mm" format (e.g. "07:00")
- * @param toleransiMenit - Tolerance in minutes (default 0)
+ * Calculate attendance status based on tap time vs threshold time.
+ *
+ * IMPORTANT — timezone safety:
+ * Both `jamTap` and `thresholdTime` must refer to the **same local wall-clock day**.
+ * We compare only HH:mm (minutes from midnight) to avoid UTC offset bugs when the
+ * server runs in a different timezone than the school (e.g. server UTC vs school WIB).
+ *
+ * @param jamTap          - The tap timestamp (Date or ISO string).
+ *                          If a Date, its local HH:mm is used.
+ *                          If a string like "HH:mm" it is used directly.
+ *                          If a full ISO string, it is parsed and local HH:mm is extracted.
+ * @param thresholdTime   - Deadline in "HH:mm" format (e.g. "07:00"). Tap <= this → TEPAT_WAKTU.
+ * @param toleransiMenit  - Extra minutes added to thresholdTime (default 0).
  * @returns StatusKehadiran
  */
 export function calculateAttendanceStatus(
   jamTap: Date | string | null,
-  jamMasuk: string = "07:00",
+  thresholdTime: string = "07:00",
   toleransiMenit: number = 0
 ): StatusKehadiran {
   if (!jamTap) return StatusKehadiran.ABSEN;
 
-  const tap = typeof jamTap === "string" ? new Date(jamTap) : jamTap;
-  const [hours, minutes] = jamMasuk.split(":").map(Number);
-
-  // Create a comparison date with school start time on the same day
-  const batasWaktu = new Date(tap);
-  batasWaktu.setHours(hours, minutes + toleransiMenit, 0, 0);
-
-  if (tap <= batasWaktu) {
-    return StatusKehadiran.TEPAT_WAKTU;
+  // --- extract tap minutes-from-midnight ---
+  let tapMinutes: number;
+  if (jamTap instanceof Date) {
+    tapMinutes = jamTap.getHours() * 60 + jamTap.getMinutes();
+  } else if (/^\d{2}:\d{2}$/.test(jamTap)) {
+    // plain "HH:mm" string
+    const [h, m] = jamTap.split(":").map(Number);
+    tapMinutes = h * 60 + m;
+  } else {
+    // ISO string — parse then use local time
+    const d = new Date(jamTap);
+    if (isNaN(d.getTime())) return StatusKehadiran.ABSEN;
+    tapMinutes = d.getHours() * 60 + d.getMinutes();
   }
-  return StatusKehadiran.TELAT;
+
+  // --- extract threshold minutes-from-midnight ---
+  const [thH, thM] = thresholdTime.split(":").map(Number);
+  const deadlineMinutes = thH * 60 + thM + toleransiMenit;
+
+  return tapMinutes <= deadlineMinutes
+    ? StatusKehadiran.TEPAT_WAKTU
+    : StatusKehadiran.TELAT;
 }
 
 /**

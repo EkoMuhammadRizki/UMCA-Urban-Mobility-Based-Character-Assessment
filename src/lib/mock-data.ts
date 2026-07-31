@@ -77,22 +77,20 @@ export async function syncDatabaseWithMock() {
   try {
     const { data: dbSiswa, error } = await supabase.from("Siswa").select("*");
     if (error) {
+      // Hanya fallback ke mock saat DB tidak bisa diakses (error koneksi/konfigurasi)
       console.warn("Could not fetch students from Supabase (using mock data fallback):", error.message || JSON.stringify(error));
       SISWA_LIST = DEFAULT_MOCK_SISWA;
       isSynced = true;
       return;
     }
-    if (dbSiswa && dbSiswa.length > 0) {
-      SISWA_LIST = dbSiswa.map(s => ({
-        id: s.id,
-        nama: s.nama,
-        kelas: s.kelas,
-        nfcTagId: s.nfcTagId ? s.nfcTagId.trim() : "",
-        sekolahId: s.sekolahId
-      }));
-    } else {
-      SISWA_LIST = DEFAULT_MOCK_SISWA;
-    }
+    // DB berhasil diakses — pakai data DB apa adanya (bisa kosong [])
+    SISWA_LIST = (dbSiswa ?? []).map(s => ({
+      id: s.id,
+      nama: s.nama,
+      kelas: s.kelas,
+      nfcTagId: s.nfcTagId ? s.nfcTagId.trim() : "",
+      sekolahId: s.sekolahId
+    }));
     isSynced = true;
   } catch (err: any) {
     console.warn("Failed to sync Supabase Siswa (using mock data fallback):", err?.message || err);
@@ -102,8 +100,33 @@ export async function syncDatabaseWithMock() {
 }
 
 export async function getSiswaList(): Promise<Siswa[]> {
-  await syncDatabaseWithMock();
-  return SISWA_LIST;
+  // Selalu fetch langsung dari DB — jangan pakai cache module-level
+  // agar perubahan (tambah/hapus) langsung terrefleksi
+  try {
+    const { data: dbSiswa, error } = await supabase
+      .from("Siswa")
+      .select("*")
+      .order("kelas", { ascending: true })
+      .order("nama", { ascending: true });
+
+    if (error) {
+      console.warn("getSiswaList: DB error, fallback ke SISWA_LIST:", error.message);
+      return SISWA_LIST;
+    }
+
+    SISWA_LIST = (dbSiswa ?? []).map(s => ({
+      id: s.id,
+      nama: s.nama,
+      kelas: s.kelas,
+      nfcTagId: s.nfcTagId ? s.nfcTagId.trim() : "",
+      sekolahId: s.sekolahId,
+    }));
+    isSynced = true;
+    return SISWA_LIST;
+  } catch (err: any) {
+    console.warn("getSiswaList catch:", err?.message);
+    return SISWA_LIST;
+  }
 }
 
 // ─── Generate Attendance for a Month ──────────────────────────
@@ -486,10 +509,12 @@ export interface EcoDashboardData {
     gerbang: number;
   }[];
   leaderboard: {
+    siswaId: string;
+    nama: string;
     kelas: string;
-    waliKelas: string;
-    skorEcoPoin: number;
-    kategori: "RENDAH_EMISI" | "SEDANG" | "POTENSI_TINGGI_EMISI";
+    haltePersentase: number; // 0-100, persen tap halte dari total tap
+    totalTaps: number;
+    kategori: "RENDAH_EMISI" | "POTENSI_TINGGI_EMISI";
   }[];
 }
 
@@ -525,13 +550,47 @@ export async function getEcoDashboardSummary(month: number, year: number): Promi
       };
     });
 
-    const leaderboard = [
-      { kelas: "4A", waliKelas: "Bu Ratna Dewi", skorEcoPoin: 85, kategori: "RENDAH_EMISI" as const },
-      { kelas: "4B", waliKelas: "Pak Budi", skorEcoPoin: 76, kategori: "RENDAH_EMISI" as const },
-      { kelas: "5A", waliKelas: "Bu Sita", skorEcoPoin: 65, kategori: "RENDAH_EMISI" as const },
-      { kelas: "3B", waliKelas: "Pak Joko", skorEcoPoin: 58, kategori: "POTENSI_TINGGI_EMISI" as const },
-      { kelas: "6A", waliKelas: "Bu Ani", skorEcoPoin: 38, kategori: "POTENSI_TINGGI_EMISI" as const },
-    ];
+    // ── Leaderboard: per-siswa berdasarkan % tap halte ──────────
+    // Ambil semua siswa yang punya minimal 1 tap (bukan ABSEN)
+    const tappedRecords = realRecords.filter(
+      (r) => r.status !== StatusKehadiran.ABSEN && r.jamTap !== null
+    );
+
+    // Kelompokkan per siswa
+    const perSiswaMap = new Map<string, { halteTaps: number; totalTaps: number }>();
+    tappedRecords.forEach((r) => {
+      const curr = perSiswaMap.get(r.siswaId) ?? { halteTaps: 0, totalTaps: 0 };
+      curr.totalTaps += 1;
+      if (r.titikTap === TitikTap.HALTE) curr.halteTaps += 1;
+      perSiswaMap.set(r.siswaId, curr);
+    });
+
+    // Susun leaderboard: hitung persentase, join dengan SISWA_LIST untuk nama & kelas
+    const leaderboard = Array.from(perSiswaMap.entries())
+      .map(([siswaId, stat]) => {
+        const siswaInfo = SISWA_LIST.find((s) => s.id === siswaId);
+        const haltePersentase =
+          stat.totalTaps > 0
+            ? Math.round((stat.halteTaps / stat.totalTaps) * 100)
+            : 0;
+        return {
+          siswaId,
+          nama: siswaInfo?.nama ?? siswaId,
+          kelas: siswaInfo?.kelas ?? "—",
+          haltePersentase,
+          totalTaps: stat.totalTaps,
+          kategori: (haltePersentase >= 50 ? "RENDAH_EMISI" : "POTENSI_TINGGI_EMISI") as
+            | "RENDAH_EMISI"
+            | "POTENSI_TINGGI_EMISI",
+        };
+      })
+      // Urutkan: persentase halte tertinggi → totalTaps terbanyak sebagai tiebreaker
+      .sort((a, b) =>
+        b.haltePersentase !== a.haltePersentase
+          ? b.haltePersentase - a.haltePersentase
+          : b.totalTaps - a.totalTaps
+      )
+      .slice(0, 5);
 
     return {
       hariIni: {

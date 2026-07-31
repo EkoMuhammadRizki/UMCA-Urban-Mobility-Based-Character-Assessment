@@ -46,6 +46,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Ekstrak jam:menit dan nama hari dalam zona WIB (UTC+7) dari timestamp.
+    // Ini penting agar penentuan "hari apa" dan perbandingan jam tidak terpengaruh
+    // timezone server (yang berjalan di UTC saat di-deploy).
+    const WIB_OFFSET = 7 * 60; // menit
+    const tapUtcMs = tapDate.getTime();
+    const tapWibMs = tapUtcMs + WIB_OFFSET * 60 * 1000;
+    const tapWib = new Date(tapWibMs);
+
+    // tapHhmm dipakai sebagai string jam lokal untuk calculateAttendanceStatus
+    const tapHhmm = `${String(tapWib.getUTCHours()).padStart(2, "0")}:${String(tapWib.getUTCMinutes()).padStart(2, "0")}`;
+    // Nama hari dalam WIB (0=Minggu … 6=Sabtu)
+    const tapWibDay = tapWib.getUTCDay();
+
     // 3. Cari NfcReader berdasarkan deviceId (Tanpa cek Secret Key)
     const { data: reader, error: readerError } = await supabase
       .from("NfcReader")
@@ -106,10 +119,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Normalisasi tanggal ke YYYY-MM-DD
-    const year = tapDate.getFullYear();
-    const month = String(tapDate.getMonth() + 1).padStart(2, "0");
-    const day = String(tapDate.getDate()).padStart(2, "0");
+    // 5. Normalisasi tanggal ke YYYY-MM-DD dalam WIB
+    const year = tapWib.getUTCFullYear();
+    const month = String(tapWib.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(tapWib.getUTCDate()).padStart(2, "0");
     const dateStr = `${year}-${month}-${day}`;
 
     // 6. Cek duplikasi tap di hari yang sama
@@ -140,22 +153,30 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Hitung status kehadiran (Tepat Waktu / Telat)
-    // Dapatkan batas waktu harian dari aturanJam (gunakan tenggat jika ada, fallback ke jamMasuk)
+    // Gunakan tapWibDay untuk nama hari dan tapHhmm untuk perbandingan waktu (keduanya WIB)
+    const DAYS_INDONESIAN = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const dayName = DAYS_INDONESIAN[tapWibDay];
+    const kelasRaw = (siswa.kelas || "").trim();
+    const kelasAngka = parseInt(kelasRaw, 10);
+
     let thresholdTime = sekolah.jamMasuk || "07:00";
-    if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam)) {
-      const DAYS_INDONESIAN = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-      const dayName = DAYS_INDONESIAN[tapDate.getDay()];
-      const rule = sekolah.aturanJam.find((r: any) => r.hari === dayName);
+    if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam) && sekolah.aturanJam.length > 0) {
+      const ruleWithKelas = sekolah.aturanJam.find((r: any) =>
+        r.hari === dayName &&
+        r.kelas &&
+        (r.kelas === kelasRaw || r.kelas === String(kelasAngka))
+      );
+      const ruleForDay = sekolah.aturanJam.find(
+        (r: any) => r.hari === dayName && !r.kelas
+      );
+      const rule = ruleWithKelas ?? ruleForDay;
       if (rule) {
         thresholdTime = rule.tenggat || rule.jamMasuk || thresholdTime;
       }
     }
 
-    const status = calculateAttendanceStatus(
-      tapDate,
-      thresholdTime,
-      0 // toleransiMenit diatur ke 0 karena batas deadline sudah ditentukan oleh tenggat
-    );
+    // Bandingkan jam WIB (string "HH:mm") dengan threshold — timezone-safe
+    const status = calculateAttendanceStatus(tapHhmm, thresholdTime, 0);
 
     // 8. Hitung penilaian eco-awareness (Poin, Kategori, Emisi)
     const ecoResult = tentukanEcoPoin(reader.titikTap, modaTransport);

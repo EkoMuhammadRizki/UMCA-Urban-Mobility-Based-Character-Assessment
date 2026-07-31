@@ -134,45 +134,56 @@ export function EcoSummary({ month, year }: EcoSummaryProps) {
             <div className="flex items-center gap-2 mb-4">
               <Award className="h-4 w-4 text-amber-500" />
               <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
-                Leaderboard Skor Eco Kelas
+                Leaderboard Skor Eco Siswa
               </h3>
             </div>
-            
-            <div className="space-y-3">
-              {ecoData.leaderboard.map((item, idx) => {
-                const isWinner = idx === 0;
-                return (
-                  <div key={item.kelas} className="flex items-center justify-between py-1.5 border-b border-border-subtle last:border-0 last:pb-0">
+
+            {ecoData.leaderboard.length === 0 ? (
+              <p className="text-sm text-text-muted text-center py-4">
+                Belum ada data absensi siswa.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {ecoData.leaderboard.map((item, idx) => (
+                  <div
+                    key={item.siswaId}
+                    className="flex items-center justify-between py-1.5 border-b border-border-subtle last:border-0 last:pb-0"
+                  >
                     <div className="flex items-center gap-3">
-                      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                        idx === 0 ? "bg-amber-100 text-amber-800" :
-                        idx === 1 ? "bg-slate-100 text-slate-700" :
-                        "text-text-muted"
-                      }`}>
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                          idx === 0
+                            ? "bg-amber-100 text-amber-800"
+                            : idx === 1
+                            ? "bg-slate-100 text-slate-700"
+                            : "text-text-muted"
+                        }`}
+                      >
                         {idx + 1}
                       </span>
-                      <div>
-                        <span className="text-sm font-semibold text-text-primary">
-                          Kelas {item.kelas}
+                      <div className="min-w-0">
+                        <span className="block text-sm font-semibold text-text-primary truncate">
+                          {item.nama}
                         </span>
                         <p className="text-[10px] text-text-secondary leading-none mt-0.5">
-                          {item.waliKelas}
+                          Kelas {item.kelas} · {item.totalTaps} tap
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        item.kategori === "RENDAH_EMISI" ? "bg-status-green-bg text-status-green-text" :
-                        "bg-status-red-bg text-status-red-text"
-                      }`}>
-                        {item.skorEcoPoin} pts
-                      </span>
-                    </div>
+                    <span
+                      className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${
+                        item.kategori === "RENDAH_EMISI"
+                          ? "bg-status-green-bg text-status-green-text"
+                          : "bg-status-red-bg text-status-red-text"
+                      }`}
+                    >
+                      {item.haltePersentase}%
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
