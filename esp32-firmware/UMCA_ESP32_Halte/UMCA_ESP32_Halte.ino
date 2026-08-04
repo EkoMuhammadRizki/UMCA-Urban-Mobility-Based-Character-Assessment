@@ -55,6 +55,8 @@ const char* AP_NAME = "UMCA-Halte-Setup";
 unsigned long lastHeartbeat = 0;
 const unsigned long HEARTBEAT_INTERVAL = 30000;  // 30 detik
 const unsigned long TAP_COOLDOWN = 3000;         // 3 detik cooldown
+const unsigned long WIFI_ERROR_SOUND_INTERVAL = 60000; // Suara error koneksi tiap 60 detik
+unsigned long lastWifiErrorSound = 0;
 unsigned long lastTapTime = 0;
 
 // ─── Status Tracking ────────────────────────────────────────────────────────
@@ -173,11 +175,18 @@ void loop() {
       wifiConnected = false;
     }
     WiFi.reconnect();
+
+    // Suara "Terjadi Kesalahan Koneksi" (0004.mp3) setiap 60 detik saat offline
+    if (millis() - lastWifiErrorSound >= WIFI_ERROR_SOUND_INTERVAL) {
+      playSound(4);
+      lastWifiErrorSound = millis();
+    }
+
     delay(1000);
-    return;
   } else if (!wifiConnected) {
     wifiConnected = true;
     Serial.println("[WiFi] Terhubung kembali ke WiFi.");
+    lastWifiErrorSound = 0; // reset agar suara error langsung berbunyi saat WiFi putus lagi
   }
 
   if (millis() - lastTapTime < TAP_COOLDOWN) {
@@ -205,7 +214,12 @@ void loop() {
   Serial.println(scannedUID);
   Serial.println("---------------------------------------------");
 
-  handleNfcTap(scannedUID);
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[TAP] WiFi tidak terhubung. Absensi tidak dapat dikirim.");
+    playSound(4); // 0004.mp3 "Terjadi Kesalahan Koneksi"
+  } else {
+    handleNfcTap(scannedUID);
+  }
   lastTapTime = millis();
 }
 
