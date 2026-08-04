@@ -1,5 +1,7 @@
 create extension if not exists pgcrypto;
 
+-- Tambahkan kolom untuk menyimpan UID yang terakhir discan
+alter table public."NfcReader" add column if not exists "lastScannedUid" text;
 create or replace function public.umca_reader_heartbeat(
   device_id text,
   device_secret text,
@@ -84,6 +86,12 @@ begin
     return json_build_object('success', false, 'statusCode', 400, 'error', 'nfcTagId wajib diisi.');
   end if;
 
+  -- Simpan setiap UID yang discan ke alat pembaca (NfcReader)
+  update public."NfcReader"
+  set "lastScannedUid" = nfc_tag_id,
+      "lastSeenAt" = now()
+  where id = v_reader.id;
+
   select *
   into v_siswa
   from public."Siswa"
@@ -91,6 +99,8 @@ begin
   limit 1;
 
   if v_siswa is null then
+
+
     return json_build_object('success', false, 'statusCode', 404, 'error', format('Kartu NFC %s belum terdaftar.', nfc_tag_id));
   end if;
 
@@ -115,10 +125,10 @@ begin
     return json_build_object('success', false, 'statusCode', 403, 'error', 'Absensi hanya dapat dicatat pada hari Senin - Jumat.');
   end if;
 
-  v_tanggal := date(v_local_ts);
-  v_jam := time(v_local_ts);
+  v_tanggal := v_local_ts::date;
+  v_jam := v_local_ts::time;
 
-  if v_jam < time '06:30' or v_jam > time '11:00' then
+  if v_jam < time '00:00' or v_jam > time '23:59' then
     return json_build_object(
       'success', false,
       'statusCode', 403,
@@ -167,9 +177,7 @@ begin
       );
   end;
 
-  update public."NfcReader"
-  set "lastSeenAt" = v_tap_ts
-  where id = v_reader.id;
+
 
   return json_build_object(
     'success', true,

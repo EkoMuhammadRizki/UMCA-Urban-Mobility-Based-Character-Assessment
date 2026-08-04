@@ -1,6 +1,7 @@
 // ============================================================================
 //  UMCA — Urban Mobility-Based Character Assessment
 //  ESP32 NFC Reader Firmware — PERANGKAT 2: GERBANG SEKOLAH (Potensi Tinggi Emisi)
+//  (DIRECT INTEGRATION TO SUPABASE RPC)
 // ============================================================================
 //  Wiring RC522 (RFID):
 //    - SS / SDA   → GPIO 5
@@ -36,13 +37,11 @@ DFRobotDFPlayerMini myDFPlayer;
 HardwareSerial mySerial(2); // UART2: RX2=GPIO16, TX2=GPIO17
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  KONFIGURASI — PERANGKAT GERBANG SEKOLAH
+//  KONFIGURASI — PERANGKAT GERBANG SEKOLAH (DIRECT TO SUPABASE)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// IP Laptop tempat Next.js berjalan (Sesuai output 'npm run dev': 192.168.1.32)
-// Jika Next.js jalan di port 3000: "http://192.168.1.32:3000"
-// Jika Next.js jalan di port 3001: "http://192.168.1.32:3001"
-const char* BASE_URL = "http://192.168.1.32:3000";
+const char* SUPABASE_URL = "https://ndybudwdzyfamrchtcrw.supabase.co";
+const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5keWJ1ZHdkenlmYW1yY2h0Y3J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NDcwMzIsImV4cCI6MjA5OTUyMzAzMn0.KUD0QMUEQYz_k4lOeYOlMIwbKwOCHqSKu7GByWOlHwQ";
 
 // Identitas Perangkat Gerbang (Cocokkan dengan tabel NfcReader di Supabase)
 const char* DEVICE_ID = "reader-gerbang-001";
@@ -54,7 +53,7 @@ const char* AP_NAME = "UMCA-Gerbang-Setup";
 
 // ─── Timing ─────────────────────────────────────────────────────────────────
 unsigned long lastHeartbeat = 0;
-const unsigned long HEARTBEAT_INTERVAL = 5000;  // 5 detik
+const unsigned long HEARTBEAT_INTERVAL = 30000;  // 30 detik
 const unsigned long TAP_COOLDOWN = 3000;         // 3 detik cooldown
 unsigned long lastTapTime = 0;
 
@@ -83,7 +82,7 @@ void setup() {
   Serial.println();
   Serial.println("=============================================");
   Serial.println("  UMCA — ESP32 Reader: GERBANG SEKOLAH      ");
-  Serial.println("  Urban Mobility-Based Character Assessment  ");
+  Serial.println("  (DIRECT TO SUPABASE RPC)                   ");
   Serial.println("=============================================");
   Serial.println();
 
@@ -143,7 +142,7 @@ void setup() {
   }
 
   // ─── 4. Heartbeat Pertama & Ready Status ─────────────────────
-  Serial.println("[System] Mengirim heartbeat pertama ke server...");
+  Serial.println("[System] Mengirim heartbeat pertama ke Supabase...");
   sendHeartbeat();
 
   playSound(5); // Sound 0005.mp3: "Sistem siap"
@@ -153,7 +152,7 @@ void setup() {
   Serial.println("=============================================");
   Serial.println("  SISTEM GERBANG SIAP - Silakan Tap Kartu NFC");
   Serial.print("  Device ID : "); Serial.println(DEVICE_ID);
-  Serial.print("  Server    : "); Serial.println(BASE_URL);
+  Serial.print("  Supabase  : "); Serial.println(SUPABASE_URL);
   Serial.print("  WiFi IP   : "); Serial.println(WiFi.localIP());
   Serial.println("=============================================");
   Serial.println();
@@ -211,7 +210,7 @@ void loop() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  KIRIM TAP KE WEB SERVICE
+//  KIRIM TAP KE SUPABASE RPC
 // ═══════════════════════════════════════════════════════════════════════════
 void handleNfcTap(String uid) {
   if (WiFi.status() != WL_CONNECTED) {
@@ -220,40 +219,34 @@ void handleNfcTap(String uid) {
     return;
   }
 
-  String url = String(BASE_URL) + "/api/attendance/tap";
+  String url = String(SUPABASE_URL) + "/rest/v1/rpc/umca_attendance_tap";
   Serial.print("[TAP] Sending POST to: ");
   Serial.println(url);
 
   JsonDocument doc;
-  doc["nfcTagId"] = uid;
-  doc["deviceId"] = DEVICE_ID;
-  doc["timestamp"] = getTimestamp();
-  doc["modaTransport"] = DEFAULT_MODA_TRANSPORT;
+  doc["nfc_tag_id"] = uid;
+  doc["device_id"] = DEVICE_ID;
+  doc["device_secret"] = DEVICE_SECRET;
+  doc["moda_transport"] = DEFAULT_MODA_TRANSPORT;
+  doc["client_timestamp"] = getTimestamp();
 
   String jsonBody;
   serializeJson(doc, jsonBody);
 
   HTTPClient http;
-  bool useHTTPS = String(BASE_URL).startsWith("https");
-
   WiFiClientSecure secureClient;
-  WiFiClient plainClient;
-
-  if (useHTTPS) {
-    secureClient.setInsecure();
-    secureClient.setTimeout(10000);
-    http.begin(secureClient, url);
-  } else {
-    plainClient.setTimeout(10000);
-    http.begin(plainClient, url);
-  }
+  
+  secureClient.setInsecure();
+  secureClient.setTimeout(10000);
+  http.begin(secureClient, url);
 
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("x-device-secret", DEVICE_SECRET);
-  http.addHeader("User-Agent", "UMCA-ESP32-Gerbang/2.1");
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+  http.addHeader("User-Agent", "UMCA-ESP32-Gerbang/3.0");
 
   int httpCode = http.POST(jsonBody);
-  Serial.print("[TAP] Response Code: ");
+  Serial.print("[TAP] HTTP Response Code: ");
   Serial.println(httpCode);
 
   if (httpCode > 0) {
@@ -267,14 +260,14 @@ void handleNfcTap(String uid) {
     if (!err) {
       bool success = resDoc["success"] | false;
       const char* errorMsg = resDoc["error"] | "";
+      int statusCode = resDoc["statusCode"] | httpCode;
 
-      if (httpCode == 201 && success) {
+      if (statusCode == 201 && success) {
         const char* nama = resDoc["data"]["siswa"]["nama"] | "Siswa";
         const char* kelas = resDoc["data"]["siswa"]["kelas"] | "";
         const char* status = resDoc["data"]["status"] | "";
         const char* jamTapStr = resDoc["data"]["jamTap"] | "";
         const char* titikTapStr = resDoc["data"]["titikTap"] | "GERBANG_SEKOLAH";
-        int ecoPoin = resDoc["data"]["ecoPoin"] | 0;
 
         Serial.println("=============================================");
         Serial.println("  ✓ ABSENSI BERHASIL DICATAT                 ");
@@ -284,13 +277,12 @@ void handleNfcTap(String uid) {
         Serial.print("  • Waktu Tap  : "); Serial.println(jamTapStr);
         Serial.print("  • Status     : "); Serial.println(status);
         Serial.print("  • Lokasi     : "); Serial.println(titikTapStr);
-        Serial.print("  • EcoPoin    : "); Serial.print(ecoPoin); Serial.println(" Poin (Potensi Tinggi Emisi)");
         Serial.println("=============================================");
 
         playSound(1);
         blinkLED(2, 150);
 
-      } else if (httpCode == 409) {
+      } else if (statusCode == 409) {
         Serial.println("=============================================");
         Serial.println("  ⚠ PERINGATAN: SUDAH ABSEN HARI INI         ");
         Serial.print("  • UID NFC    : "); Serial.println(uid);
@@ -300,7 +292,7 @@ void handleNfcTap(String uid) {
         playSound(3);
         blinkLED(3, 100);
 
-      } else if (httpCode == 404) {
+      } else if (statusCode == 404) {
         Serial.println("=============================================");
         Serial.println("  ✗ ERROR: KARTU/PERANGKAT TIDAK TERDAFTAR  ");
         Serial.print("  • UID NFC    : "); Serial.println(uid);
@@ -330,39 +322,33 @@ void handleNfcTap(String uid) {
 void sendHeartbeat() {
   if (WiFi.status() != WL_CONNECTED) return;
 
-  String url = String(BASE_URL) + "/api/reader/heartbeat";
+  String url = String(SUPABASE_URL) + "/rest/v1/rpc/umca_reader_heartbeat";
 
   JsonDocument doc;
-  doc["deviceId"] = DEVICE_ID;
+  doc["device_id"] = DEVICE_ID;
+  doc["device_secret"] = DEVICE_SECRET;
   doc["connected"] = true;
 
   String jsonBody;
   serializeJson(doc, jsonBody);
 
   HTTPClient http;
-  bool useHTTPS = String(BASE_URL).startsWith("https");
-
   WiFiClientSecure secureClient;
-  WiFiClient plainClient;
 
-  if (useHTTPS) {
-    secureClient.setInsecure();
-    secureClient.setTimeout(5000);
-    http.begin(secureClient, url);
-  } else {
-    plainClient.setTimeout(5000);
-    http.begin(plainClient, url);
-  }
+  secureClient.setInsecure();
+  secureClient.setTimeout(5000);
+  http.begin(secureClient, url);
 
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("x-device-secret", DEVICE_SECRET);
-  http.addHeader("User-Agent", "UMCA-ESP32-Gerbang/2.1");
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+  http.addHeader("User-Agent", "UMCA-ESP32-Gerbang/3.0");
 
   int httpCode = http.POST(jsonBody);
   if (httpCode == 200) {
     Serial.print(".");
   } else {
-    Serial.print("\n[HB Connection Error: "); Serial.print(httpCode); Serial.println("] Pastikan IP & Port Server Benar");
+    Serial.print("\n[HB Connection Error: "); Serial.print(httpCode); Serial.println("] Pastikan IP & Keys Benar");
   }
   http.end();
 }
