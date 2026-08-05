@@ -8,8 +8,11 @@ import { EcoSummary } from "@/components/dashboard/eco-summary";
 import { getDashboardSummary, getRecentActivity } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
+import { useLiveAttendance } from "@/lib/hooks/use-live-attendance";
 
 export default function DashboardPage() {
+  useLiveAttendance();
+
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
