@@ -178,7 +178,7 @@ void loop() {
 
     // Suara "Terjadi Kesalahan Koneksi" (0004.mp3) setiap 60 detik saat offline
     if (millis() - lastWifiErrorSound >= WIFI_ERROR_SOUND_INTERVAL) {
-      playSound(4);
+      if (dfPlayerReady) playSound(4);
       lastWifiErrorSound = millis();
     }
 
@@ -216,7 +216,7 @@ void loop() {
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[TAP] WiFi tidak terhubung. Absensi tidak dapat dikirim.");
-    playSound(4); // 0004.mp3 "Terjadi Kesalahan Koneksi"
+    if (dfPlayerReady) playSound(4); // 0004.mp3 "Terjadi Kesalahan Koneksi"
   } else {
     handleNfcTap(scannedUID);
   }
@@ -229,7 +229,7 @@ void loop() {
 void handleNfcTap(String uid) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[TAP] ERROR: WiFi terputus saat mau kirim data!");
-    playSound(4);
+    if (dfPlayerReady) playSound(4);
     return;
   }
 
