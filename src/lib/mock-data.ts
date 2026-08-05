@@ -17,6 +17,7 @@ import {
   type ChartDataScatter,
 } from "@/lib/types";
 import { getWeekdaysInMonth, toISODateString, formatMonthYear, formatDayHeader, getMinutesSinceMidnight, formatTime } from "@/lib/utils/date-utils";
+import { isWeekend } from "date-fns";
 import { calculatePercentage, calculateDistribusi, getFrequentlyLateCount } from "@/lib/utils/attendance-utils";
 import { supabase } from "./supabase";
 
@@ -518,6 +519,18 @@ export interface EcoDashboardData {
   }[];
 }
 
+// 5 hari sekolah terakhir dihitung mundur dari hari ini (menembus batas bulan)
+function getLast5SchoolDays(): Date[] {
+  const days: Date[] = [];
+  const cursor = new Date();
+  while (days.length < 5) {
+    const day = new Date(cursor);
+    if (!isWeekend(day)) days.unshift(day);
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return days;
+}
+
 export async function getEcoDashboardSummary(month: number, year: number): Promise<EcoDashboardData> {
   await syncDatabaseWithMock();
   const realRecords = await fetchRealKehadiran();
@@ -537,7 +550,7 @@ export async function getEcoDashboardSummary(month: number, year: number): Promi
     const haltePercentage = totalTaps > 0 ? Math.round((halteTaps / totalTaps) * 100) : 0;
     const gerbangPercentage = totalTaps > 0 ? Math.round((gerbangTaps / totalTaps) * 100) : 0;
 
-    const last5Days = weekdays.slice(-5);
+    const last5Days = getLast5SchoolDays();
     const sebaranMingguan = last5Days.map((day) => {
       const dateStr = toISODateString(day);
       const dayRecords = realRecords.filter((r) => r.tanggal === dateStr && r.status !== StatusKehadiran.ABSEN);
@@ -614,7 +627,7 @@ export async function getEcoDashboardSummary(month: number, year: number): Promi
       haltePercentage: 0,
       gerbangPercentage: 0,
     },
-    sebaranMingguan: weekdays.slice(-5).map((day) => ({
+    sebaranMingguan: getLast5SchoolDays().map((day) => ({
       tanggal: toISODateString(day),
       label: formatDayHeader(day),
       halte: 0,
