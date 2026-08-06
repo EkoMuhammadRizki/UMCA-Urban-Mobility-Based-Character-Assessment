@@ -49,7 +49,7 @@ interface SidebarProps {
   guruRole?: string;
 }
 
-export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A" }: SidebarProps) {
+export function Sidebar({ guruNama = "UMCA", guruRole = "User UMCA" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [nama, setNama] = useState(guruNama);
@@ -91,6 +91,9 @@ export function Sidebar({ guruNama = "Bu Ratna Dewi", guruRole = "Wali Kelas 4A"
       }
     }).then((result) => {
       if (result.isConfirmed) {
+        localStorage.removeItem("user_nama");
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("user_email");
         router.push("/login");
       }
     });

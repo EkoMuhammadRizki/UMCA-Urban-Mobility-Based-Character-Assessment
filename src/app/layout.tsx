@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: "UMCA — Urban Mobility-Based Character Assessment",
   description:
     "Dashboard pendukung riset Urban Mobility-Based Character Assessment (UMCA) — asesmen digital karakter kedisiplinan siswa SD berbasis NFC.",
+  icons: {
+    icon: "/logo/Logo-Putih-Circle.png",
+    apple: "/logo/Logo-Putih-Circle.png",
+  },
 };
 
 export default function RootLayout({

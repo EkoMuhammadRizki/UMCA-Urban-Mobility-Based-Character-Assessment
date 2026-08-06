@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("demo@gmail.com");
-  const [password, setPassword] = useState("demo");
+  const [username, setUsername] = useState("umca@gmail.com");
+  const [password, setPassword] = useState("umca");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -43,17 +43,22 @@ export default function LoginPage() {
       return;
     }
 
-    if (username === "demo@gmail.com" && password === "demo") {
+    if (username === "umca@gmail.com" && password === "umca") {
       setIsLoading(true);
       // Simulate login verification
       setTimeout(() => {
         setIsLoading(false);
-        localStorage.setItem("user_nama", "Demo");
-        localStorage.setItem("user_role", "Demo User");
+        const rawName = username.includes("@") ? username.split("@")[0] : username;
+        const formattedName = rawName.toUpperCase();
+        const formattedRole = `User ${formattedName}`;
+
+        localStorage.setItem("user_nama", formattedName);
+        localStorage.setItem("user_role", formattedRole);
+        localStorage.setItem("user_email", username);
         router.push("/guru/dashboard");
       }, 1200);
     } else {
-      setError("Email atau password salah. Gunakan email: demo@gmail.com dan password: demo");
+      setError("Email atau password salah. Gunakan email: umca@gmail.com dan password: umca");
     }
   };
 

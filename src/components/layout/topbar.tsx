@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { Bell, School, LogOut } from "lucide-react";
+import { School, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 
@@ -13,14 +13,17 @@ interface TopbarProps {
 
 export function Topbar({
   sekolahNama = "SDI AL-Irsyadiah",
-  guruNama = "Bu Ratna Dewi",
+  guruNama = "UMCA",
 }: TopbarProps) {
   const router = useRouter();
   const [nama, setNama] = useState(guruNama);
+  const [role, setRole] = useState("User UMCA");
 
   useEffect(() => {
     const storedNama = localStorage.getItem("user_nama");
+    const storedRole = localStorage.getItem("user_role");
     if (storedNama) setNama(storedNama);
+    if (storedRole) setRole(storedRole);
   }, []);
 
   const handleLogout = (e: React.MouseEvent) => {
@@ -41,6 +44,9 @@ export function Topbar({
       }
     }).then((result) => {
       if (result.isConfirmed) {
+        localStorage.removeItem("user_nama");
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("user_email");
         router.push("/login");
       }
     });
@@ -57,21 +63,14 @@ export function Topbar({
 
       </div>
 
-      {/* Right: Notification + Profile + Logout (Mobile) */}
+      {/* Right: Profile + Logout (Mobile) */}
       <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-        {/* Notification bell */}
-        <button className="relative rounded-lg p-2 text-text-secondary hover:bg-slate-100 transition-colors">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-            3
-          </span>
-        </button>
 
         {/* Profile */}
         <div className="flex items-center gap-2 md:gap-3 border-l border-border-subtle pl-2 md:pl-4">
           <div className="hidden md:block">
             <p className="text-sm font-semibold text-text-primary text-right">{nama}</p>
-            <p className="text-xs text-text-secondary text-right">Wali Kelas 4A</p>
+            <p className="text-xs text-text-secondary text-right">{role}</p>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">
             {nama
