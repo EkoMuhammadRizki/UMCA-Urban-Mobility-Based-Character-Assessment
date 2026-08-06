@@ -2,14 +2,22 @@
 // Uses SheetJS (xlsx) to generate .xlsx files client-side
 
 import * as XLSX from "xlsx";
-import type { RekapKehadiranRow } from "@/lib/types";
-import { StatusKehadiran } from "@/lib/types";
-import { formatDayHeader, formatMonthYear, toISODateString } from "@/lib/utils/date-utils";
+import type { RekapKehadiranRow, Kehadiran } from "@/lib/types";
+import { StatusKehadiran, TitikTap } from "@/lib/types";
+import {
+  formatDayHeader,
+  formatMonthYear,
+  toISODateString,
+  formatTime,
+  getMinutesSinceMidnight,
+  minutesToTimeString,
+} from "@/lib/utils/date-utils";
 import { getStatusLabel } from "@/lib/utils/attendance-utils";
 import { tentukanEcoPoin } from "@/lib/eco-assessment";
+import { getAllKehadiranData } from "@/lib/mock-data";
 
 /**
- * Export attendance recap data to an Excel (.xlsx) file.
+ * Export attendance recap data to a research-grade Excel (.xlsx) file.
  */
 export function exportAttendanceToExcel(
   data: RekapKehadiranRow[],
@@ -19,25 +27,27 @@ export function exportAttendanceToExcel(
   kelas: string,
   namaSekolah: string = "SDI-Al-Irsyadiah"
 ): void {
-  // Create workbook
   const wb = XLSX.utils.book_new();
-
-  // Build data array
   const rows: (string | number)[][] = [];
 
-  // Row 1: School name + period
-  rows.push([`${namaSekolah} — Rekap Kehadiran ${formatMonthYear(month, year)}`]);
+  // Title block
+  rows.push([`${namaSekolah} — Rekap Kehadiran & Evaluasi Karakter ${formatMonthYear(month, year)}`]);
   rows.push([`Kelas: ${kelas}`]);
-  rows.push([]); // Empty row
+  rows.push([]);
 
   // Header row
-  const headers = ["No", "Nama Siswa"];
-  weekdays.forEach((day) => {
-    headers.push(formatDayHeader(day));
-  });
-  headers.push("Titik Tap (Dominan)");
-  headers.push("Kategori Emisi (Estimasi)");
-  headers.push("% Tepat Waktu");
+  const headers = [
+    "No",
+    "Nama Siswa",
+    ...weekdays.map((day) => formatDayHeader(day)),
+    "Tap Halte",
+    "Tap Gerbang",
+    "% Tap Halte",
+    "Rata-rata Jam Tap",
+    "Titik Tap Dominan",
+    "Kategori Eco Assessment",
+    "% Tepat Waktu",
+  ];
   rows.push(headers);
 
   // Data rows
@@ -48,17 +58,23 @@ export function exportAttendanceToExcel(
     let gerbangCount = 0;
     let totalEcoScore = 0;
     let validEcoCount = 0;
+    let sumMinutes = 0;
 
     weekdays.forEach((day) => {
       const dateKey = toISODateString(day);
       const kehadiran = row.kehadiran[dateKey];
       if (kehadiran) {
-        dataRow.push(getStatusLabel(kehadiran.status));
-        
+        let label = getStatusLabel(kehadiran.status);
+        if (kehadiran.status !== StatusKehadiran.ABSEN && kehadiran.jamTap) {
+          label += ` (${formatTime(kehadiran.jamTap)})`;
+          sumMinutes += getMinutesSinceMidnight(kehadiran.jamTap);
+        }
+        dataRow.push(label);
+
         if (kehadiran.status !== StatusKehadiran.ABSEN && kehadiran.titikTap) {
-          if (kehadiran.titikTap === "HALTE") halteCount++;
-          if (kehadiran.titikTap === "GERBANG_SEKOLAH") gerbangCount++;
-          
+          if (kehadiran.titikTap === TitikTap.HALTE) halteCount++;
+          if (kehadiran.titikTap === TitikTap.GERBANG_SEKOLAH) gerbangCount++;
+
           const eco = tentukanEcoPoin(kehadiran.titikTap, kehadiran.modaTransport);
           totalEcoScore += eco.skorEcoPoin;
           validEcoCount++;
@@ -68,60 +84,58 @@ export function exportAttendanceToExcel(
       }
     });
 
-    const dominantTap = halteCount === 0 && gerbangCount === 0
-      ? "—"
-      : halteCount >= gerbangCount
+    const totalTaps = halteCount + gerbangCount;
+    const pctHalte = totalTaps > 0 ? Math.round((halteCount / totalTaps) * 100) : 0;
+    const avgJamTap = validEcoCount > 0 ? `${minutesToTimeString(Math.round(sumMinutes / validEcoCount))} WIB` : "—";
+
+    const dominantTap =
+      totalTaps === 0
+        ? "—"
+        : halteCount >= gerbangCount
         ? `Halte (${halteCount}x)`
         : `Gerbang (${gerbangCount}x)`;
 
     const averageEcoScore = validEcoCount > 0 ? Math.round(totalEcoScore / validEcoCount) : 0;
     let kategoriEmisi = "—";
     if (validEcoCount > 0) {
-      if (averageEcoScore >= 70) {
+      if (pctHalte >= 50 || averageEcoScore >= 70) {
         kategoriEmisi = "Rendah Emisi";
-      } else if (averageEcoScore >= 40) {
-        kategoriEmisi = "Sedang";
       } else {
-        kategoriEmisi = "Tinggi Emisi";
+        kategoriEmisi = "Potensi Tinggi Emisi";
       }
     }
 
+    dataRow.push(halteCount);
+    dataRow.push(gerbangCount);
+    dataRow.push(`${pctHalte}%`);
+    dataRow.push(avgJamTap);
     dataRow.push(dominantTap);
     dataRow.push(kategoriEmisi);
     dataRow.push(`${row.persentaseTepatWaktu}%`);
     rows.push(dataRow);
   });
 
-  // Create worksheet from data
   const ws = XLSX.utils.aoa_to_sheet(rows);
-
-  // Set column widths
-  const colWidths = [
-    { wch: 4 },  // No
-    { wch: 25 }, // Nama Siswa
-    ...weekdays.map(() => ({ wch: 12 })), // Day columns
-    { wch: 20 }, // Titik Tap
-    { wch: 22 }, // Kategori Emisi
-    { wch: 14 }, // % column
-  ];
-  ws["!cols"] = colWidths;
-
-  // Merge cells for title row
-  ws["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: Math.min(headers.length - 1, 10) } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+  ws["!cols"] = [
+    { wch: 5 },  // No
+    { wch: 28 }, // Nama
+    ...weekdays.map(() => ({ wch: 18 })), // Daily columns
+    { wch: 12 }, // Halte
+    { wch: 14 }, // Gerbang
+    { wch: 14 }, // % Halte
+    { wch: 18 }, // Rata-rata Jam Tap
+    { wch: 20 }, // Dominan
+    { wch: 24 }, // Kategori
+    { wch: 14 }, // % Tepat Waktu
   ];
 
-  // Add worksheet to workbook
   XLSX.utils.book_append_sheet(wb, ws, "Rekap Kehadiran");
 
-  // Generate month name for filename
   const monthNames = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ];
 
-  // Download file
   const fileName = `Rekap-Kehadiran-${kelas}-${monthNames[month]}-${year}.xlsx`;
   XLSX.writeFile(wb, fileName);
 }
@@ -129,36 +143,287 @@ export function exportAttendanceToExcel(
 // ─── Siswa Export / Import ────────────────────────────────────
 
 export interface SiswaRow {
+  id?: string;
   nama: string;
   nisn: string;
   kelas: string;
 }
 
 /**
- * Export daftar siswa ke file .xlsx
+ * Export dataset riset komprehensif ke file .xlsx (Multisheet untuk peneliti/Scopus)
  */
-export function exportSiswaToExcel(siswaList: SiswaRow[], namaSekolah: string = "UMCA"): void {
+export async function exportSiswaToExcel(
+  siswaList: SiswaRow[],
+  namaSekolah: string = "UMCA"
+): Promise<void> {
   const wb = XLSX.utils.book_new();
 
-  const rows: (string | number)[][] = [];
-  rows.push([`${namaSekolah} — Data Siswa`]);
-  rows.push([`Diekspor pada: ${new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}`]);
-  rows.push([]);
-  rows.push(["No", "Nama Siswa", "NISN/NIS", "Kelas"]);
+  // Ambil seluruh data presensi nyata / mock untuk statistik riset
+  const allKehadiran = await getAllKehadiranData();
+  const validTapRecords = allKehadiran.filter(
+    (r) => r.status !== StatusKehadiran.ABSEN && r.jamTap !== null
+  );
 
-  siswaList.forEach((s, i) => {
-    rows.push([i + 1, s.nama, s.nisn || "—", s.kelas]);
+  // ─────────────────────────────────────────────────────────────
+  // SHEET 1: Ringkasan Riset & Statistik
+  // ─────────────────────────────────────────────────────────────
+  const summaryRows: (string | number)[][] = [];
+
+  const totalSiswa = siswaList.length;
+  const totalTapEvents = validTapRecords.length;
+  const totalHalteTaps = validTapRecords.filter((r) => r.titikTap === TitikTap.HALTE).length;
+  const totalGerbangTaps = validTapRecords.filter((r) => r.titikTap === TitikTap.GERBANG_SEKOLAH).length;
+  const ratioHalte = totalTapEvents > 0 ? Math.round((totalHalteTaps / totalTapEvents) * 100) : 0;
+  const ratioGerbang = totalTapEvents > 0 ? Math.round((totalGerbangTaps / totalTapEvents) * 100) : 0;
+
+  let globalMinutesSum = 0;
+  validTapRecords.forEach((r) => {
+    globalMinutesSum += getMinutesSinceMidnight(r.jamTap!);
+  });
+  const avgGlobalMinutes = totalTapEvents > 0 ? Math.round(globalMinutesSum / totalTapEvents) : 0;
+  const avgGlobalJamStr = totalTapEvents > 0 ? `${minutesToTimeString(avgGlobalMinutes)} WIB` : "—";
+
+  const totalTepatWaktu = validTapRecords.filter((r) => r.status === StatusKehadiran.TEPAT_WAKTU).length;
+  const totalTelat = validTapRecords.filter((r) => r.status === StatusKehadiran.TELAT).length;
+  const pctTepatWaktuGlobal = totalTapEvents > 0 ? Math.round((totalTepatWaktu / totalTapEvents) * 100) : 0;
+
+  summaryRows.push([`${namaSekolah} — DATASET RISET EVALUASI KARAKTER LINGKUNGAN (UMCA)`]);
+  summaryRows.push([`Diekspor pada: ${new Date().toLocaleDateString("id-ID", { dateStyle: "full" })}`]);
+  summaryRows.push([
+    "Deskripsi: Dataset ini memuat presensi NFC, statistik sebaran lokasi tap (Halte vs Gerbang), rata-rata jam kedatangan, dan asesmen emisi untuk analisis riset Scopus."
+  ]);
+  summaryRows.push([]);
+
+  summaryRows.push(["Indikator Riset & Evaluasi", "Nilai / Statistik", "Keterangan & Satuan"]);
+  summaryRows.push(["Total Siswa Sampel", totalSiswa, "Siswa Terdaftar"]);
+  summaryRows.push(["Total Frekuensi Tap NFC Terekam", totalTapEvents, "Transaksi Event Tap"]);
+  summaryRows.push(["Jumlah Tap Halte Sekolah (Rendah Emisi)", totalHalteTaps, `Tap Halte (${ratioHalte}% dari total tap)`]);
+  summaryRows.push(["Jumlah Tap Gerbang Utama (Potensi Tinggi Emisi)", totalGerbangTaps, `Tap Gerbang (${ratioGerbang}% dari total tap)`]);
+  summaryRows.push(["Rasio Tap Halte (Eco-Mobility Index)", `${ratioHalte}%`, "Target Perilaku Ramah Lingkungan"]);
+  summaryRows.push(["Rata-rata Waktu Kedatangan (Jam Tap Siswa)", avgGlobalJamStr, "WIB (Rata-rata Seluruh Presensi)"]);
+  summaryRows.push(["Total Presensi Tepat Waktu (< 07:00)", totalTepatWaktu, `Presensi (${pctTepatWaktuGlobal}%)`]);
+  summaryRows.push(["Total Presensi Telat (>= 07:00)", totalTelat, "Presensi"]);
+  summaryRows.push(["Tingkat Ketepatan Waktu Presensi Keseluruhan", `${pctTepatWaktuGlobal}%`, "Ketepatan Waktu"]);
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary["!cols"] = [{ wch: 48 }, { wch: 25 }, { wch: 55 }];
+  wsSummary["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
+  ];
+  XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan Riset");
+
+  // ─────────────────────────────────────────────────────────────
+  // SHEET 2: Data Statistik Siswa (Per-Siswa Analytical Matrix)
+  // ─────────────────────────────────────────────────────────────
+  const studentRows: (string | number)[][] = [];
+
+  const studentHeaders = [
+    "No",
+    "ID Siswa",
+    "Nama Siswa",
+    "NISN / NFC Tag",
+    "Kelas",
+    "Total Presensi (Tap)",
+    "Tap Halte (Rendah Emisi)",
+    "Tap Gerbang (Potensi Tinggi)",
+    "% Tap Halte (Eco Ratio)",
+    "Rata-rata Skor Eco (0-100)",
+    "Kategori Eco Assessment",
+    "Predikat Character Eco",
+    "Rata-rata Jam Tap",
+    "Jam Tap Terawal",
+    "Jam Tap Terakhir",
+    "Total Tepat Waktu",
+    "Total Telat",
+    "% Ketepatan Waktu",
+  ];
+  studentRows.push(studentHeaders);
+
+  siswaList.forEach((s, idx) => {
+    const studentRecords = allKehadiran.filter(
+      (r) =>
+        (s.id && r.siswaId === s.id) ||
+        (r.siswa?.nama && r.siswa.nama.toLowerCase() === s.nama.toLowerCase()) ||
+        (r.siswa?.nfcTagId && r.siswa.nfcTagId === s.nisn)
+    );
+
+    const validStudentTaps = studentRecords.filter(
+      (r) => r.status !== StatusKehadiran.ABSEN && r.jamTap !== null
+    );
+
+    const tapsCount = validStudentTaps.length;
+    const halteCount = validStudentTaps.filter((r) => r.titikTap === TitikTap.HALTE).length;
+    const gerbangCount = validStudentTaps.filter((r) => r.titikTap === TitikTap.GERBANG_SEKOLAH).length;
+    const pctHalte = tapsCount > 0 ? Math.round((halteCount / tapsCount) * 100) : 0;
+
+    let totalEcoPoin = 0;
+    let minMinutes = Infinity;
+    let maxMinutes = -Infinity;
+    let sumMinutes = 0;
+    let tepatCount = 0;
+    let telatCount = 0;
+
+    validStudentTaps.forEach((r) => {
+      const eco = tentukanEcoPoin(r.titikTap, r.modaTransport);
+      totalEcoPoin += eco.skorEcoPoin;
+
+      const mins = getMinutesSinceMidnight(r.jamTap!);
+      sumMinutes += mins;
+      if (mins < minMinutes) minMinutes = mins;
+      if (mins > maxMinutes) maxMinutes = mins;
+
+      if (r.status === StatusKehadiran.TEPAT_WAKTU) tepatCount++;
+      if (r.status === StatusKehadiran.TELAT) telatCount++;
+    });
+
+    const avgEcoScore = tapsCount > 0 ? Math.round(totalEcoPoin / tapsCount) : 0;
+
+    let kategoriEco = "—";
+    let predikatEco = "Belum Ada Presensi";
+    if (tapsCount > 0) {
+      if (pctHalte >= 50 || avgEcoScore >= 70) {
+        kategoriEco = "RENDAH_EMISI";
+        predikatEco = "Rendah Emisi (Sangat Peduli Lingkungan)";
+      } else {
+        kategoriEco = "POTENSI_TINGGI_EMISI";
+        predikatEco = "Potensi Tinggi Emisi (Dominan Kendaraan Pribadi)";
+      }
+    }
+
+    const avgTimeStr = tapsCount > 0 ? `${minutesToTimeString(Math.round(sumMinutes / tapsCount))} WIB` : "—";
+    const minTimeStr = tapsCount > 0 && minMinutes !== Infinity ? `${minutesToTimeString(minMinutes)} WIB` : "—";
+    const maxTimeStr = tapsCount > 0 && maxMinutes !== -Infinity ? `${minutesToTimeString(maxMinutes)} WIB` : "—";
+    const pctTepat = tapsCount > 0 ? Math.round((tepatCount / tapsCount) * 100) : 0;
+
+    studentRows.push([
+      idx + 1,
+      s.id || `SWS-${String(idx + 1).padStart(3, "0")}`,
+      s.nama,
+      s.nisn || "—",
+      s.kelas,
+      tapsCount,
+      halteCount,
+      gerbangCount,
+      `${pctHalte}%`,
+      avgEcoScore,
+      kategoriEco,
+      predikatEco,
+      avgTimeStr,
+      minTimeStr,
+      maxTimeStr,
+      tepatCount,
+      telatCount,
+      `${pctTepat}%`,
+    ]);
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{ wch: 5 }, { wch: 30 }, { wch: 15 }, { wch: 10 }];
-  ws["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },
+  const wsStudents = XLSX.utils.aoa_to_sheet(studentRows);
+  wsStudents["!cols"] = [
+    { wch: 5 },  // No
+    { wch: 12 }, // ID
+    { wch: 28 }, // Nama
+    { wch: 16 }, // NISN
+    { wch: 10 }, // Kelas
+    { wch: 20 }, // Total Tap
+    { wch: 22 }, // Tap Halte
+    { wch: 24 }, // Tap Gerbang
+    { wch: 20 }, // % Halte
+    { wch: 22 }, // Skor Eco
+    { wch: 24 }, // Kategori
+    { wch: 42 }, // Predikat
+    { wch: 18 }, // Rata-rata Jam
+    { wch: 16 }, // Jam Terawal
+    { wch: 16 }, // Jam Terakhir
+    { wch: 18 }, // Total Tepat
+    { wch: 14 }, // Total Telat
+    { wch: 18 }, // % Tepat
   ];
+  XLSX.utils.book_append_sheet(wb, wsStudents, "Data Statistik Siswa");
 
-  XLSX.utils.book_append_sheet(wb, ws, "Data Siswa");
-  XLSX.writeFile(wb, `Data-Siswa-${namaSekolah.replace(/\s+/g, "-")}.xlsx`);
+  // ─────────────────────────────────────────────────────────────
+  // SHEET 3: Log Transaksi Tap Realtime (Raw Event Log)
+  // ─────────────────────────────────────────────────────────────
+  const logRows: (string | number)[][] = [];
+
+  const logHeaders = [
+    "No",
+    "ID Transaksi",
+    "Tanggal",
+    "Hari",
+    "Jam Tap",
+    "ID Siswa",
+    "Nama Siswa",
+    "NISN / NFC Tag",
+    "Kelas",
+    "Kode Titik Tap",
+    "Lokasi Tap Detail",
+    "Moda Transportasi",
+    "Status Kehadiran",
+    "Skor Eco Event",
+  ];
+  logRows.push(logHeaders);
+
+  validTapRecords.forEach((r, idx) => {
+    const studentInfo = siswaList.find(
+      (s) =>
+        (s.id && s.id === r.siswaId) ||
+        s.nama.toLowerCase() === (r.siswa?.nama || "").toLowerCase()
+    );
+
+    const dateObj = new Date(r.tanggal);
+    const dayName = formatDayHeader(dateObj).split(" ")[0];
+    const jamTapStr = r.jamTap ? `${formatTime(r.jamTap)} WIB` : "—";
+
+    const lokasiDetail =
+      r.titikTap === TitikTap.HALTE
+        ? "Halte Sekolah (Rendah Emisi)"
+        : r.titikTap === TitikTap.GERBANG_SEKOLAH
+        ? "Gerbang Utama (Potensi Tinggi Emisi)"
+        : "—";
+
+    const eco = tentukanEcoPoin(r.titikTap, r.modaTransport);
+
+    logRows.push([
+      idx + 1,
+      r.id,
+      r.tanggal,
+      dayName,
+      jamTapStr,
+      r.siswaId,
+      r.siswa?.nama || studentInfo?.nama || "Siswa Tidak Dikenal",
+      r.siswa?.nfcTagId || studentInfo?.nisn || "—",
+      r.siswa?.kelas || studentInfo?.kelas || "—",
+      r.titikTap || "—",
+      lokasiDetail,
+      r.modaTransport || "—",
+      r.status,
+      eco.skorEcoPoin,
+    ]);
+  });
+
+  const wsLog = XLSX.utils.aoa_to_sheet(logRows);
+  wsLog["!cols"] = [
+    { wch: 5 },  // No
+    { wch: 22 }, // ID Transaksi
+    { wch: 14 }, // Tanggal
+    { wch: 10 }, // Hari
+    { wch: 14 }, // Jam Tap
+    { wch: 12 }, // ID Siswa
+    { wch: 28 }, // Nama
+    { wch: 16 }, // NISN
+    { wch: 10 }, // Kelas
+    { wch: 18 }, // Kode Titik Tap
+    { wch: 38 }, // Lokasi Detail
+    { wch: 20 }, // Moda Transportasi
+    { wch: 16 }, // Status Kehadiran
+    { wch: 16 }, // Skor Eco Event
+  ];
+  XLSX.utils.book_append_sheet(wb, wsLog, "Log Tap Realtime");
+
+  const dateSuffix = toISODateString(new Date());
+  XLSX.writeFile(wb, `Dataset-Riset-UMCA-${namaSekolah.replace(/\s+/g, "-")}-${dateSuffix}.xlsx`);
 }
 
 /**

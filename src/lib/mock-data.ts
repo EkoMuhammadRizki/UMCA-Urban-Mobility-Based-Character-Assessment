@@ -259,6 +259,17 @@ async function fetchRealKehadiran(): Promise<Kehadiran[] | null> {
   return null;
 }
 
+// Export all attendance records (from DB or fallback mock) for research Excel export
+export async function getAllKehadiranData(): Promise<Kehadiran[]> {
+  await syncDatabaseWithMock();
+  const realRecords = await fetchRealKehadiran();
+  if (realRecords && realRecords.length > 0) {
+    return realRecords;
+  }
+  const now = new Date();
+  return generateKehadiran(now.getMonth(), now.getFullYear(), SISWA_LIST);
+}
+
 // ─── Rekap Kehadiran (table data) ─────────────────────────────
 export async function getRekapKehadiran(
   month: number,

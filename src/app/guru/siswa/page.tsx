@@ -356,17 +356,23 @@ export default function SiswaListPage() {
     });
   }, [queryClient]);
 
-  // ── Export Data Siswa ──
-  function handleExport() {
+  // ── Export Data Siswa (Comprehensive Research Dataset) ──
+  async function handleExport() {
     if (!siswaList || siswaList.length === 0) {
       toast.warning("Belum ada data siswa untuk diekspor.");
       return;
     }
-    exportSiswaToExcel(
-      siswaList.map((s) => ({ nama: s.nama, nisn: s.nfcTagId, kelas: s.kelas })),
-      "UMCA"
-    );
-    toast.success("Data siswa berhasil diekspor.");
+    toast.info("Menyiapkan dataset riset komprehensif...");
+    try {
+      await exportSiswaToExcel(
+        siswaList.map((s) => ({ id: s.id, nama: s.nama, nisn: s.nfcTagId, kelas: s.kelas })),
+        "UMCA"
+      );
+      toast.success("Dataset riset Excel berhasil diekspor! 🎉");
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast.error("Gagal mengekspor data riset: " + (err?.message || "Terjadi kesalahan"));
+    }
   }
 
   // ── Download Template ──

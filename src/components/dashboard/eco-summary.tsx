@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getEcoDashboardSummary } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +13,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Info, Award, Leaf, Zap } from "lucide-react";
+import { Info, Award, Leaf, Zap, ArrowUpDown } from "lucide-react";
 import { getKategoriEmisiLabel, KategoriEmisi } from "@/lib/eco-assessment";
 
 interface EcoSummaryProps {
@@ -40,10 +41,33 @@ function CustomEcoTooltip({ active, payload, label }: any) {
 }
 
 export function EcoSummary({ month, year }: EcoSummaryProps) {
+  const [sortBy, setSortBy] = useState<
+    "tanggal-asc" | "tanggal-desc" | "total-desc" | "halte-desc" | "gerbang-desc"
+  >("tanggal-asc");
+
   const { data: ecoData, isLoading } = useQuery({
     queryKey: ["eco-summary", month, year],
     queryFn: () => getEcoDashboardSummary(month, year),
   });
+
+  const sortedSebaranMingguan = useMemo(() => {
+    if (!ecoData?.sebaranMingguan) return [];
+    const list = [...ecoData.sebaranMingguan];
+    switch (sortBy) {
+      case "tanggal-asc":
+        return list.sort((a, b) => a.tanggal.localeCompare(b.tanggal));
+      case "tanggal-desc":
+        return list.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+      case "total-desc":
+        return list.sort((a, b) => b.halte + b.gerbang - (a.halte + a.gerbang));
+      case "halte-desc":
+        return list.sort((a, b) => b.halte - a.halte);
+      case "gerbang-desc":
+        return list.sort((a, b) => b.gerbang - a.gerbang);
+      default:
+        return list;
+    }
+  }, [ecoData?.sebaranMingguan, sortBy]);
 
   if (isLoading) {
     return (
@@ -190,22 +214,40 @@ export function EcoSummary({ month, year }: EcoSummaryProps) {
         {/* Right Column: Tap Location Weekly Trend */}
         <div className="lg:col-span-3">
           <div className="rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-sm h-full flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Zap className="h-4 w-4 text-brand-600" />
-                <h3 className="text-base font-semibold text-text-primary">
-                  Tren Lokasi Tap Mingguan
-                </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="h-4 w-4 text-brand-600" />
+                  <h3 className="text-base font-semibold text-text-primary">
+                    Tren Lokasi Tap Mingguan
+                  </h3>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Jumlah sebaran tap di halte sekolah vs gerbang dalam 5 hari sekolah terakhir.
+                </p>
               </div>
-              <p className="text-xs text-text-secondary mb-6">
-                Jumlah sebaran tap di halte sekolah vs gerbang dalam 5 hari sekolah terakhir.
-              </p>
+
+              {/* Filter Sort Select */}
+              <div className="flex items-center gap-2 shrink-0">
+                <ArrowUpDown className="h-3.5 w-3.5 text-text-secondary" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="rounded-lg border border-border-subtle bg-surface-card px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-sm hover:border-border-muted focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600 transition-colors cursor-pointer"
+                >
+                  <option value="tanggal-asc">Tanggal (Lama → Baru)</option>
+                  <option value="tanggal-desc">Tanggal (Baru → Lama)</option>
+                  <option value="total-desc">Total Tap Terbanyak</option>
+                  <option value="halte-desc">Tap Halte Terbanyak</option>
+                  <option value="gerbang-desc">Tap Gerbang Terbanyak</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex-1">
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart
-                  data={ecoData.sebaranMingguan}
+                  data={sortedSebaranMingguan}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                   barGap={4}
                 >
