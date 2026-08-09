@@ -14,6 +14,7 @@ import {
   Clock,
   Wifi,
   LogOut,
+  Battery,
 } from "lucide-react";
 
 const menuItems = [
@@ -145,26 +146,48 @@ export function Sidebar({ guruNama = "UMCA", guruRole = "User UMCA" }: SidebarPr
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
-              {readerStatus?.active ? (
-                <>
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </>
-              ) : (
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500"></span>
-              )}
-            </span>
-            <span className="text-xs font-semibold text-slate-300">
-              {readerStatus?.active ? "NFC Reader Aktif" : "NFC Reader Offline"}
-            </span>
-          </div>
-          {readerStatus?.active && readerStatus?.lokasiLabel && (
-            <p className="text-[10px] text-slate-400 pl-4 truncate">
-              {readerStatus.lokasiLabel}
-            </p>
+{readerStatus?.active ? (
+            <>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </>
+          ) : (
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500"></span>
           )}
-        </div>
+        </span>
+        <span className="text-xs font-semibold text-slate-300">
+          {readerStatus?.active ? "NFC Reader Aktif" : "NFC Reader Offline"}
+        </span>
       </div>
+      {readerStatus?.active &&
+        readerStatus?.readers?.map((reader: any) => (
+          <div key={reader.deviceId} className="flex flex-col gap-0.5 border-t border-white/10 pt-2 mt-2 first:border-t-0 first:pt-0 first:mt-0">
+            {reader.lokasiLabel && (
+              <p className="text-[10px] text-slate-400 pl-4 truncate">
+                {reader.lokasiLabel}
+              </p>
+            )}
+            {reader.batteryPct != null && (
+              (() => {
+                const pct = reader.batteryPct;
+                const color = pct > 50 ? "text-green-400" : pct > 20 ? "text-amber-400" : "text-red-400";
+                return (
+                  <div className="flex items-center gap-1.5 pl-4">
+                    <Battery className={`h-3.5 w-3.5 ${color}`} />
+                    <span className={`text-[10px] font-semibold ${color}`}>Baterai {pct}%</span>
+                    {reader.batteryVoltage != null && (
+                      <span className="text-[10px] text-slate-400">
+                        · {reader.batteryVoltage.toFixed(2)}V
+                      </span>
+                    )}
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        ))}
+    </div>
+  </div>
 
       {/* Profile */}
       <div className="border-t border-white/10 px-4 py-4">

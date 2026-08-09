@@ -6,7 +6,8 @@ export async function GET(req: NextRequest) {
     const { data: readers, error } = await supabase
       .from("NfcReader")
       .select("*")
-      .eq("isActive", true);
+      .eq("isActive", true)
+      .order("deviceId", { ascending: true });
 
     if (error) {
       console.error("Status check error:", error);
@@ -14,30 +15,36 @@ export async function GET(req: NextRequest) {
     }
 
     if (!readers || readers.length === 0) {
-      return NextResponse.json({ success: true, active: false, message: "No active readers registered." });
+      return NextResponse.json({ success: true, active: false, readers: [], message: "No active readers registered." });
     }
 
     const now = Date.now();
-    const TIMEOUT_MS = 12000; // 12 detik batas toleransi status online
+    // Heartbeat firmware tiap 30 detik → toleransi 45 detik (1.5x interval)
+    // agar perangkat tidak bergantian online/offline
+    const TIMEOUT_MS = 45000;
 
-    // Cari jika ada reader yang baru saja melakukan ping
-    const activeReader = readers.find(r => {
+    // Kumpulkan semua reader yang baru saja melakukan ping
+    const onlineReaders = readers.filter(r => {
       if (!r.lastSeenAt) return false;
       const lastSeenTime = new Date(r.lastSeenAt).getTime();
       return Math.abs(now - lastSeenTime) < TIMEOUT_MS;
     });
 
-    if (activeReader) {
+    if (onlineReaders.length > 0) {
       return NextResponse.json({
         success: true,
         active: true,
-        lokasiLabel: activeReader.lokasiLabel,
-        deviceId: activeReader.deviceId,
-        lastSeenAt: activeReader.lastSeenAt
+        readers: onlineReaders.map(r => ({
+          deviceId: r.deviceId,
+          lokasiLabel: r.lokasiLabel,
+          lastSeenAt: r.lastSeenAt,
+          batteryPct: r.batteryPct ?? null,
+          batteryVoltage: r.batteryVoltage ?? null
+        }))
       });
     }
 
-    return NextResponse.json({ success: true, active: false });
+    return NextResponse.json({ success: true, active: false, readers: [] });
   } catch (err: any) {
     console.error("Status check route error:", err);
     return NextResponse.json({ success: false, active: false, error: err.message }, { status: 500 });

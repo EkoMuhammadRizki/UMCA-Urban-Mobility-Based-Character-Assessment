@@ -59,6 +59,13 @@ const unsigned long WIFI_ERROR_SOUND_INTERVAL = 60000; // Suara error koneksi ti
 unsigned long lastWifiErrorSound = 0;
 unsigned long lastTapTime = 0;
 
+// --- Baterai (GPIO34 ADC1_CH6, voltage divider 1k ohm + 1k ohm) ---
+#define BATTERY_PIN 34
+#define BATTERY_SAMPLES 16
+#define BATTERY_DIVIDER 2.0f       // (R1+R2)/R2 = 2 untuk resistor 1k:1k
+#define BATTERY_FULL_V 4.2f        // Li-ion 1 sel penuh
+#define BATTERY_EMPTY_V 3.3f       // Li-ion 1 sel kosong (cut-off aman)
+
 // ─── Status Tracking ────────────────────────────────────────────────────────
 bool dfPlayerReady = false;
 bool wifiConnected = false;
@@ -68,6 +75,8 @@ void sendHeartbeat();
 void handleNfcTap(String uid);
 void playSound(int track);
 void blinkLED(int times, int delayMs);
+float readBatteryVoltage();
+int batteryPercent(float voltage);
 String getTimestamp();
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -80,6 +89,9 @@ void setup() {
   pinMode(LED_OK, OUTPUT);
   pinMode(BUZZER, OUTPUT);
   digitalWrite(LED_OK, LOW);
+
+  analogReadResolution(12);
+  analogSetPinAttenuation(BATTERY_PIN, ADC_11db);
 
   Serial.println();
   Serial.println("=============================================");
@@ -343,6 +355,10 @@ void sendHeartbeat() {
   doc["device_secret"] = DEVICE_SECRET;
   doc["connected"] = true;
 
+  float batteryVoltage = readBatteryVoltage();
+  doc["battery_voltage"] = batteryVoltage;
+  doc["battery_pct"] = batteryPercent(batteryVoltage);
+
   String jsonBody;
   serializeJson(doc, jsonBody);
 
@@ -365,6 +381,23 @@ void sendHeartbeat() {
     Serial.print("\n[HB Connection Error: "); Serial.print(httpCode); Serial.println("] Pastikan IP & Keys Benar");
   }
   http.end();
+}
+
+float readBatteryVoltage() {
+  long totalMv = 0;
+  for (int i = 0; i < BATTERY_SAMPLES; i++) {
+    totalMv += analogReadMilliVolts(BATTERY_PIN);
+    delay(5);
+  }
+  float avgMv = (float)totalMv / BATTERY_SAMPLES;
+  return (avgMv * BATTERY_DIVIDER) / 1000.0f;
+}
+
+int batteryPercent(float voltage) {
+  float pct = (voltage - BATTERY_EMPTY_V) / (BATTERY_FULL_V - BATTERY_EMPTY_V) * 100.0f;
+  if (pct < 0) pct = 0;
+  if (pct > 100) pct = 100;
+  return (int)(pct + 0.5f);
 }
 
 String getTimestamp() { return String(millis()); }
