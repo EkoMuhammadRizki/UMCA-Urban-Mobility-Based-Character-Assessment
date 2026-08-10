@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  ArrowLeft, User, CreditCard, School, TrendingUp, Leaf,
+  ArrowLeft, User, CreditCard, School, TrendingUp, Leaf, Award,
   Pencil, Trash2, Loader2, Save, X,
 } from "lucide-react";
 import {
@@ -302,9 +302,13 @@ export default function SiswaDetailPage() {
 
   const activeTaps = siswa.kehadiran.filter((k) => k.status !== "ABSEN" && k.titikTap);
   const halteCount = activeTaps.filter((k) => k.titikTap === "HALTE").length;
+  const gerbangCount = activeTaps.filter((k) => k.titikTap === "GERBANG_SEKOLAH").length;
   const percentHalte = activeTaps.length > 0
     ? Math.round((halteCount / activeTaps.length) * 100)
     : 0;
+
+  const totalBobotSiswa = halteCount * 3 + gerbangCount * 1;
+  const avgBobotSiswa = activeTaps.length > 0 ? (totalBobotSiswa / activeTaps.length).toFixed(1) : "0";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -397,6 +401,15 @@ export default function SiswaDetailPage() {
                       <p className="text-xs text-text-muted">Eco-Awareness (Estimasi)</p>
                       <p className="text-sm font-semibold text-text-primary">
                         {percentHalte}% Tap Halte
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-2.5">
+                    <Award className="h-4 w-4 text-amber-500" />
+                    <div className="text-left">
+                      <p className="text-xs text-text-muted">Bobot Presensi Siswa</p>
+                      <p className="text-sm font-semibold text-text-primary">
+                        Total {totalBobotSiswa} Poin <span className="text-xs font-normal text-text-secondary">(Rata-rata: {avgBobotSiswa}/3)</span>
                       </p>
                     </div>
                   </div>
