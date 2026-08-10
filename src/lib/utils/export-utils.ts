@@ -43,7 +43,7 @@ export function exportAttendanceToExcel(
     "Tap Halte (Bobot 3)",
     "Tap Gerbang (Bobot 1)",
     "Total Bobot Tap",
-    "Rata-rata Bobot Tap",
+    "Rata-rata Bobot per Tap Presensi (Bobot Peduli Lingkungan)",
     "% Tap Halte",
     "Rata-rata Jam Tap",
     "Titik Tap Dominan",
@@ -130,7 +130,7 @@ export function exportAttendanceToExcel(
     { wch: 18 }, // Halte (Bobot 3)
     { wch: 18 }, // Gerbang (Bobot 1)
     { wch: 16 }, // Total Bobot
-    { wch: 18 }, // Rata-rata Bobot
+    { wch: 45 }, // Rata-rata Bobot per Tap Presensi (Bobot Peduli Lingkungan)
     { wch: 14 }, // % Halte
     { wch: 18 }, // Rata-rata Jam Tap
     { wch: 20 }, // Dominan
@@ -212,7 +212,7 @@ export async function exportSiswaToExcel(
   summaryRows.push(["Jumlah Tap Halte Sekolah (Bobot 3 - Rendah Emisi)", totalHalteTaps, `Tap Halte (${ratioHalte}% dari total tap)`]);
   summaryRows.push(["Jumlah Tap Gerbang Utama (Bobot 1 - Potensi Tinggi Emisi)", totalGerbangTaps, `Tap Gerbang (${ratioGerbang}% dari total tap)`]);
   summaryRows.push(["Total Akumulasi Bobot Tap Presensi", totalBobotGlobal, "Poin Bobot Presensi (Halte=3, Gerbang=1)"]);
-  summaryRows.push(["Rata-rata Bobot per Tap Presensi", avgBobotGlobal, "Skala Bobot Presensi (1.0 - 3.0)"]);
+  summaryRows.push(["Rata-rata Bobot per Tap Presensi (Bobot Peduli Lingkungan)", avgBobotGlobal, "Skala Bobot Presensi (1.0 - 3.0)"]);
   summaryRows.push(["Rasio Tap Halte (Eco-Mobility Index)", `${ratioHalte}%`, "Target Perilaku Ramah Lingkungan"]);
   summaryRows.push(["Rata-rata Waktu Kedatangan (Jam Tap Siswa)", avgGlobalJamStr, "WIB (Rata-rata Seluruh Presensi)"]);
   summaryRows.push(["Total Presensi Tepat Waktu (< 07:00)", totalTepatWaktu, `Presensi (${pctTepatWaktuGlobal}%)`]);
@@ -243,7 +243,7 @@ export async function exportSiswaToExcel(
     "Tap Halte (Bobot 3)",
     "Tap Gerbang (Bobot 1)",
     "Total Bobot Tap",
-    "Rata-rata Bobot Tap",
+    "Rata-rata Bobot per Tap Presensi (Bobot Peduli Lingkungan)",
     "% Tap Halte (Eco Ratio)",
     "Rata-rata Skor Eco (0-100)",
     "Kategori Eco Assessment",
@@ -350,7 +350,7 @@ export async function exportSiswaToExcel(
     { wch: 22 }, // Tap Halte
     { wch: 24 }, // Tap Gerbang
     { wch: 18 }, // Total Bobot
-    { wch: 20 }, // Rata-rata Bobot
+    { wch: 45 }, // Rata-rata Bobot per Tap Presensi (Bobot Peduli Lingkungan)
     { wch: 20 }, // % Halte
     { wch: 22 }, // Skor Eco
     { wch: 24 }, // Kategori
