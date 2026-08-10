@@ -41,6 +41,9 @@ export function RecentActivity({ activities, isLoading = false }: RecentActivity
                 Kelas
               </th>
               <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                Lokasi & Bobot
+              </th>
+              <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 Jam Tap
               </th>
               <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
@@ -60,6 +63,9 @@ export function RecentActivity({ activities, isLoading = false }: RecentActivity
                     </td>
                     <td className="py-3 pr-4">
                       <Skeleton className="h-5 w-10" />
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Skeleton className="h-5 w-24" />
                     </td>
                     <td className="py-3 pr-4">
                       <Skeleton className="h-5 w-14" />
@@ -94,6 +100,19 @@ export function RecentActivity({ activities, isLoading = false }: RecentActivity
                     </td>
                     <td className="py-3 pr-4 text-sm text-text-secondary">
                       {activity.siswa.kelas}
+                    </td>
+                    <td className="py-3 pr-4 text-sm">
+                      {activity.titikTap === "HALTE" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-200">
+                          Halte • Bobot 3
+                        </span>
+                      ) : activity.titikTap === "GERBANG_SEKOLAH" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
+                          Gerbang • Bobot 1
+                        </span>
+                      ) : (
+                        <span className="text-xs text-text-tertiary">—</span>
+                      )}
                     </td>
                     <td className="py-3 pr-4 text-sm font-medium text-text-primary tabular-nums">
                       {formatTime(activity.jamTap)}

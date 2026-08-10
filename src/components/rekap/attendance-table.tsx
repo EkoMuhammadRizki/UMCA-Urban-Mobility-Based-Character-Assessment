@@ -209,7 +209,7 @@ export function AttendanceTable({
                               </p>
                               {kehadiran.jamTap && kehadiran.titikTap && (
                                 <p className="text-text-secondary">
-                                  Lokasi: {kehadiran.titikTap === "HALTE" ? "Halte" : "Gerbang Sekolah"}
+                                  Lokasi: {kehadiran.titikTap === "HALTE" ? "Halte (Bobot 3)" : "Gerbang Sekolah (Bobot 1)"}
                                 </p>
                               )}
                               {kehadiran.jamTap && kehadiran.modaTransport && (

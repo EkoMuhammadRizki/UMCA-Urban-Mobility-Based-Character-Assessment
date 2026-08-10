@@ -525,8 +525,8 @@ export default function SiswaDetailPage() {
                       <td className="py-3 text-sm text-text-primary">
                         {record.titikTap
                           ? record.titikTap === "HALTE"
-                            ? "Halte"
-                            : "Gerbang Sekolah"
+                            ? "Halte • Bobot 3"
+                            : "Gerbang Sekolah • Bobot 1"
                           : "—"}
                         {record.modaTransport ? ` (${record.modaTransport})` : ""}
                       </td>

@@ -6,6 +6,24 @@ export interface EcoAssessmentResult {
   skorEcoPoin: number;
   kategori: KategoriEmisi;
   estimasiKgCO2: number;
+  bobot: number;
+}
+
+/**
+ * Menghitung bobot indikator presensi lokasi tap:
+ * - Halte Sekolah = 3 (Mobilitas ramah lingkungan / angkutan umum)
+ * - Gerbang Utama = 1 (Kendaraan pribadi / drop-off)
+ * - Absen / Tidak tap = 0
+ */
+export function getBobotTap(titikTap?: TitikTap | string | null): number {
+  if (!titikTap) return 0;
+  if (titikTap === TitikTap.HALTE || titikTap === "HALTE") {
+    return 3;
+  }
+  if (titikTap === TitikTap.GERBANG_SEKOLAH || titikTap === "GERBANG_SEKOLAH" || titikTap === "GERBANG") {
+    return 1;
+  }
+  return 1;
 }
 
 /**
@@ -23,6 +41,7 @@ export function tentukanEcoPoin(
   titikTap: TitikTap | string | null | undefined,
   modaTransport?: string | null
 ): EcoAssessmentResult {
+  const bobot = getBobotTap(titikTap);
   
   // 1. Explicit modaTransport always wins
   if (modaTransport) {
@@ -34,6 +53,7 @@ export function tentukanEcoPoin(
         skorEcoPoin: 100,
         kategori: "RENDAH_EMISI",
         estimasiKgCO2: 0.0,
+        bobot,
       };
     }
 
@@ -52,6 +72,7 @@ export function tentukanEcoPoin(
         skorEcoPoin: 80,
         kategori: "RENDAH_EMISI",
         estimasiKgCO2: 0.1, // rough per-passenger trip estimate
+        bobot,
       };
     }
 
@@ -66,6 +87,7 @@ export function tentukanEcoPoin(
         skorEcoPoin: 40,
         kategori: "POTENSI_TINGGI_EMISI",
         estimasiKgCO2: 0.4,
+        bobot,
       };
     }
 
@@ -81,6 +103,7 @@ export function tentukanEcoPoin(
         skorEcoPoin: 10,
         kategori: "POTENSI_TINGGI_EMISI",
         estimasiKgCO2: 1.2,
+        bobot,
       };
     }
 
@@ -89,6 +112,7 @@ export function tentukanEcoPoin(
       skorEcoPoin: 50,
       kategori: "POTENSI_TINGGI_EMISI",
       estimasiKgCO2: 0.5,
+      bobot,
     };
   }
 
@@ -99,6 +123,7 @@ export function tentukanEcoPoin(
       skorEcoPoin: 80,
       kategori: "RENDAH_EMISI",
       estimasiKgCO2: 0.1,
+      bobot: 3,
     };
   }
 
@@ -108,6 +133,7 @@ export function tentukanEcoPoin(
       skorEcoPoin: 30,
       kategori: "POTENSI_TINGGI_EMISI",
       estimasiKgCO2: 0.8, // estimated avg of private motor/car mix
+      bobot: 1,
     };
   }
 
@@ -116,6 +142,7 @@ export function tentukanEcoPoin(
     skorEcoPoin: 0,
     kategori: "POTENSI_TINGGI_EMISI",
     estimasiKgCO2: 0.0,
+    bobot: 0,
   };
 }
 

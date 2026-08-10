@@ -213,6 +213,7 @@ export async function POST(req: NextRequest) {
 
     if (existingKehadiran) {
       // Tolak dengan status 409 Conflict sesuai instruksi (untuk feedback visual detail)
+      console.log("[TAP DEBUG] DUPLIKAT — record existing:", JSON.stringify({ id: existingKehadiran.id, tanggal: existingKehadiran.tanggal, status: existingKehadiran.status, jamTap: existingKehadiran.jamTap }));
       return NextResponse.json(
         {
           success: false,
@@ -233,6 +234,13 @@ export async function POST(req: NextRequest) {
 
     let thresholdTime: string = sekolah.jamMasuk || "07:00";
 
+    // --- DEBUG LOG ---
+    console.log("[TAP DEBUG] sekolah.id:", sekolah.id);
+    console.log("[TAP DEBUG] sekolah.aturanJam type:", typeof sekolah.aturanJam, "isArray:", Array.isArray(sekolah.aturanJam));
+    console.log("[TAP DEBUG] sekolah.aturanJam value:", JSON.stringify(sekolah.aturanJam));
+    console.log("[TAP DEBUG] tapHhmm (WIB):", tapHhmm, "| dayName:", dayName);
+    // --- END DEBUG ---
+
     if (sekolah.aturanJam && Array.isArray(sekolah.aturanJam) && sekolah.aturanJam.length > 0) {
       const ruleWithKelas = sekolah.aturanJam.find((r: any) =>
         r.hari === dayName &&
@@ -243,12 +251,16 @@ export async function POST(req: NextRequest) {
         (r: any) => r.hari === dayName && !r.kelas
       );
       const rule = ruleWithKelas ?? ruleForDay;
+      console.log("[TAP DEBUG] rule found:", JSON.stringify(rule));
       if (rule) {
         thresholdTime = rule.tenggat || rule.jamMasuk || thresholdTime;
       }
+    } else {
+      console.log("[TAP DEBUG] aturanJam TIDAK ADA atau bukan array — pakai fallback jamMasuk:", sekolah.jamMasuk);
     }
 
     // Bandingkan jam WIB (string "HH:mm") dengan threshold — timezone-safe
+    console.log("[TAP DEBUG] thresholdTime final:", thresholdTime, "| hasil status:", tapHhmm <= thresholdTime ? "TEPAT_WAKTU" : "TELAT");
     const status = calculateAttendanceStatus(tapHhmm, thresholdTime, 0);
 
 
@@ -306,6 +318,7 @@ export async function POST(req: NextRequest) {
           jamTap: newKehadiran.jamTap,
           status: newKehadiran.status,
           titikTap: newKehadiran.titikTap,
+          bobot: ecoResult.bobot,
           modaTransport: newKehadiran.modaTransport,
           ecoPoin: ecoResult.skorEcoPoin,
           kategoriEmisi: ecoResult.kategori,

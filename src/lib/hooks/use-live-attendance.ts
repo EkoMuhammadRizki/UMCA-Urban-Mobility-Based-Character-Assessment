@@ -20,7 +20,7 @@ interface KehadiranPayload {
 }
 
 function getTitikTapLabel(titikTap?: TitikTap | null): string {
-  return titikTap === TitikTap.HALTE ? "Halte (Rendah Emisi)" : "Gerbang (Potensi Tinggi)";
+  return titikTap === TitikTap.HALTE ? "Halte (Bobot: 3)" : "Gerbang (Bobot: 1)";
 }
 
 export function useLiveAttendance() {

@@ -13,7 +13,7 @@ import {
   minutesToTimeString,
 } from "@/lib/utils/date-utils";
 import { getStatusLabel } from "@/lib/utils/attendance-utils";
-import { tentukanEcoPoin } from "@/lib/eco-assessment";
+import { tentukanEcoPoin, getBobotTap } from "@/lib/eco-assessment";
 import { getAllKehadiranData } from "@/lib/mock-data";
 
 /**
@@ -40,8 +40,10 @@ export function exportAttendanceToExcel(
     "No",
     "Nama Siswa",
     ...weekdays.map((day) => formatDayHeader(day)),
-    "Tap Halte",
-    "Tap Gerbang",
+    "Tap Halte (Bobot 3)",
+    "Tap Gerbang (Bobot 1)",
+    "Total Bobot Tap",
+    "Rata-rata Bobot Tap",
     "% Tap Halte",
     "Rata-rata Jam Tap",
     "Titik Tap Dominan",
@@ -66,7 +68,8 @@ export function exportAttendanceToExcel(
       if (kehadiran) {
         let label = getStatusLabel(kehadiran.status);
         if (kehadiran.status !== StatusKehadiran.ABSEN && kehadiran.jamTap) {
-          label += ` (${formatTime(kehadiran.jamTap)})`;
+          const b = getBobotTap(kehadiran.titikTap);
+          label += ` (${formatTime(kehadiran.jamTap)}${b > 0 ? ` - Bobot ${b}` : ""})`;
           sumMinutes += getMinutesSinceMidnight(kehadiran.jamTap);
         }
         dataRow.push(label);
@@ -85,6 +88,8 @@ export function exportAttendanceToExcel(
     });
 
     const totalTaps = halteCount + gerbangCount;
+    const totalBobot = halteCount * 3 + gerbangCount * 1;
+    const avgBobot = totalTaps > 0 ? (totalBobot / totalTaps).toFixed(2) : "0";
     const pctHalte = totalTaps > 0 ? Math.round((halteCount / totalTaps) * 100) : 0;
     const avgJamTap = validEcoCount > 0 ? `${minutesToTimeString(Math.round(sumMinutes / validEcoCount))} WIB` : "—";
 
@@ -107,6 +112,8 @@ export function exportAttendanceToExcel(
 
     dataRow.push(halteCount);
     dataRow.push(gerbangCount);
+    dataRow.push(totalBobot);
+    dataRow.push(avgBobot);
     dataRow.push(`${pctHalte}%`);
     dataRow.push(avgJamTap);
     dataRow.push(dominantTap);
@@ -119,9 +126,11 @@ export function exportAttendanceToExcel(
   ws["!cols"] = [
     { wch: 5 },  // No
     { wch: 28 }, // Nama
-    ...weekdays.map(() => ({ wch: 18 })), // Daily columns
-    { wch: 12 }, // Halte
-    { wch: 14 }, // Gerbang
+    ...weekdays.map(() => ({ wch: 24 })), // Daily columns
+    { wch: 18 }, // Halte (Bobot 3)
+    { wch: 18 }, // Gerbang (Bobot 1)
+    { wch: 16 }, // Total Bobot
+    { wch: 18 }, // Rata-rata Bobot
     { wch: 14 }, // % Halte
     { wch: 18 }, // Rata-rata Jam Tap
     { wch: 20 }, // Dominan
@@ -173,6 +182,9 @@ export async function exportSiswaToExcel(
   const totalTapEvents = validTapRecords.length;
   const totalHalteTaps = validTapRecords.filter((r) => r.titikTap === TitikTap.HALTE).length;
   const totalGerbangTaps = validTapRecords.filter((r) => r.titikTap === TitikTap.GERBANG_SEKOLAH).length;
+  const totalBobotGlobal = totalHalteTaps * 3 + totalGerbangTaps * 1;
+  const avgBobotGlobal = totalTapEvents > 0 ? (totalBobotGlobal / totalTapEvents).toFixed(2) : "0";
+
   const ratioHalte = totalTapEvents > 0 ? Math.round((totalHalteTaps / totalTapEvents) * 100) : 0;
   const ratioGerbang = totalTapEvents > 0 ? Math.round((totalGerbangTaps / totalTapEvents) * 100) : 0;
 
@@ -190,15 +202,17 @@ export async function exportSiswaToExcel(
   summaryRows.push([`${namaSekolah} — DATASET RISET EVALUASI KARAKTER LINGKUNGAN (UMCA)`]);
   summaryRows.push([`Diekspor pada: ${new Date().toLocaleDateString("id-ID", { dateStyle: "full" })}`]);
   summaryRows.push([
-    "Deskripsi: Dataset ini memuat presensi NFC, statistik sebaran lokasi tap (Halte vs Gerbang), rata-rata jam kedatangan, dan asesmen emisi untuk analisis riset Scopus."
+    "Deskripsi: Dataset ini memuat presensi NFC, indikator bobot presensi (Halte=3, Gerbang=1), statistik sebaran lokasi tap, rata-rata jam kedatangan, dan asesmen emisi untuk analisis riset Scopus."
   ]);
   summaryRows.push([]);
 
   summaryRows.push(["Indikator Riset & Evaluasi", "Nilai / Statistik", "Keterangan & Satuan"]);
   summaryRows.push(["Total Siswa Sampel", totalSiswa, "Siswa Terdaftar"]);
   summaryRows.push(["Total Frekuensi Tap NFC Terekam", totalTapEvents, "Transaksi Event Tap"]);
-  summaryRows.push(["Jumlah Tap Halte Sekolah (Rendah Emisi)", totalHalteTaps, `Tap Halte (${ratioHalte}% dari total tap)`]);
-  summaryRows.push(["Jumlah Tap Gerbang Utama (Potensi Tinggi Emisi)", totalGerbangTaps, `Tap Gerbang (${ratioGerbang}% dari total tap)`]);
+  summaryRows.push(["Jumlah Tap Halte Sekolah (Bobot 3 - Rendah Emisi)", totalHalteTaps, `Tap Halte (${ratioHalte}% dari total tap)`]);
+  summaryRows.push(["Jumlah Tap Gerbang Utama (Bobot 1 - Potensi Tinggi Emisi)", totalGerbangTaps, `Tap Gerbang (${ratioGerbang}% dari total tap)`]);
+  summaryRows.push(["Total Akumulasi Bobot Tap Presensi", totalBobotGlobal, "Poin Bobot Presensi (Halte=3, Gerbang=1)"]);
+  summaryRows.push(["Rata-rata Bobot per Tap Presensi", avgBobotGlobal, "Skala Bobot Presensi (1.0 - 3.0)"]);
   summaryRows.push(["Rasio Tap Halte (Eco-Mobility Index)", `${ratioHalte}%`, "Target Perilaku Ramah Lingkungan"]);
   summaryRows.push(["Rata-rata Waktu Kedatangan (Jam Tap Siswa)", avgGlobalJamStr, "WIB (Rata-rata Seluruh Presensi)"]);
   summaryRows.push(["Total Presensi Tepat Waktu (< 07:00)", totalTepatWaktu, `Presensi (${pctTepatWaktuGlobal}%)`]);
@@ -206,7 +220,7 @@ export async function exportSiswaToExcel(
   summaryRows.push(["Tingkat Ketepatan Waktu Presensi Keseluruhan", `${pctTepatWaktuGlobal}%`, "Ketepatan Waktu"]);
 
   const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-  wsSummary["!cols"] = [{ wch: 48 }, { wch: 25 }, { wch: 55 }];
+  wsSummary["!cols"] = [{ wch: 55 }, { wch: 25 }, { wch: 55 }];
   wsSummary["!merges"] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
     { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
@@ -226,8 +240,10 @@ export async function exportSiswaToExcel(
     "NISN / NFC Tag",
     "Kelas",
     "Total Presensi (Tap)",
-    "Tap Halte (Rendah Emisi)",
-    "Tap Gerbang (Potensi Tinggi)",
+    "Tap Halte (Bobot 3)",
+    "Tap Gerbang (Bobot 1)",
+    "Total Bobot Tap",
+    "Rata-rata Bobot Tap",
     "% Tap Halte (Eco Ratio)",
     "Rata-rata Skor Eco (0-100)",
     "Kategori Eco Assessment",
@@ -256,6 +272,8 @@ export async function exportSiswaToExcel(
     const tapsCount = validStudentTaps.length;
     const halteCount = validStudentTaps.filter((r) => r.titikTap === TitikTap.HALTE).length;
     const gerbangCount = validStudentTaps.filter((r) => r.titikTap === TitikTap.GERBANG_SEKOLAH).length;
+    const totalBobotStudent = halteCount * 3 + gerbangCount * 1;
+    const avgBobotStudent = tapsCount > 0 ? Number((totalBobotStudent / tapsCount).toFixed(2)) : 0;
     const pctHalte = tapsCount > 0 ? Math.round((halteCount / tapsCount) * 100) : 0;
 
     let totalEcoPoin = 0;
@@ -306,6 +324,8 @@ export async function exportSiswaToExcel(
       tapsCount,
       halteCount,
       gerbangCount,
+      totalBobotStudent,
+      avgBobotStudent,
       `${pctHalte}%`,
       avgEcoScore,
       kategoriEco,
@@ -329,6 +349,8 @@ export async function exportSiswaToExcel(
     { wch: 20 }, // Total Tap
     { wch: 22 }, // Tap Halte
     { wch: 24 }, // Tap Gerbang
+    { wch: 18 }, // Total Bobot
+    { wch: 20 }, // Rata-rata Bobot
     { wch: 20 }, // % Halte
     { wch: 22 }, // Skor Eco
     { wch: 24 }, // Kategori
@@ -359,6 +381,7 @@ export async function exportSiswaToExcel(
     "Kelas",
     "Kode Titik Tap",
     "Lokasi Tap Detail",
+    "Bobot Tap",
     "Moda Transportasi",
     "Status Kehadiran",
     "Skor Eco Event",
@@ -384,6 +407,7 @@ export async function exportSiswaToExcel(
         : "—";
 
     const eco = tentukanEcoPoin(r.titikTap, r.modaTransport);
+    const bobotTap = getBobotTap(r.titikTap);
 
     logRows.push([
       idx + 1,
@@ -397,6 +421,7 @@ export async function exportSiswaToExcel(
       r.siswa?.kelas || studentInfo?.kelas || "—",
       r.titikTap || "—",
       lokasiDetail,
+      bobotTap,
       r.modaTransport || "—",
       r.status,
       eco.skorEcoPoin,
@@ -416,6 +441,7 @@ export async function exportSiswaToExcel(
     { wch: 10 }, // Kelas
     { wch: 18 }, // Kode Titik Tap
     { wch: 38 }, // Lokasi Detail
+    { wch: 14 }, // Bobot Tap
     { wch: 20 }, // Moda Transportasi
     { wch: 16 }, // Status Kehadiran
     { wch: 16 }, // Skor Eco Event
