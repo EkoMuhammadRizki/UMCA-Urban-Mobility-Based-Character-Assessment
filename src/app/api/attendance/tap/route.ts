@@ -89,10 +89,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Cari Siswa berdasarkan nfcTagId (termasuk Sekolah)
+    // 4. Cari Siswa berdasarkan nfcTagId
     const { data: siswa, error: siswaError } = await supabase
       .from("Siswa")
-      .select("*, Sekolah(*)")
+      .select("*")
       .eq("nfcTagId", nfcTagId)
       .maybeSingle();
 
@@ -111,7 +111,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sekolah = siswa.Sekolah || siswa.sekolah;
+    // 4a. Query data Sekolah secara langsung (bukan via JOIN) agar aturanJam
+    // selalu fresh dari DB — menghindari stale cache dari relasi JOIN Siswa→Sekolah.
+    const { data: sekolah, error: sekolahError } = await supabase
+      .from("Sekolah")
+      .select("*")
+      .eq("id", siswa.sekolahId)
+      .maybeSingle();
+
+    if (sekolahError) {
+      console.error("Error fetching Sekolah:", sekolahError);
+      return NextResponse.json(
+        { success: false, error: "Gagal memuat data sekolah siswa." },
+        { status: 500 }
+      );
+    }
+
     if (!sekolah) {
       return NextResponse.json(
         { success: false, error: "Sekolah asal siswa tidak ditemukan." },
