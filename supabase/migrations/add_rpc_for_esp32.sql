@@ -121,27 +121,53 @@ begin
   v_tap_ts := now();
   v_local_ts := (v_tap_ts at time zone 'Asia/Jakarta');
 
-  if extract(isodow from v_local_ts) in (6, 7) then
-    return json_build_object('success', false, 'statusCode', 403, 'error', 'Absensi hanya dapat dicatat pada hari Senin - Jumat.');
-  end if;
+  -- Ambil nama hari dalam bahasa Indonesia
+  -- 0=Minggu, 1=Senin, 2=Selasa, 3=Rabu, 4=Kamis, 5=Jumat, 6=Sabtu
+  declare
+    v_dow int;
+    v_day_name text;
+    v_rule jsonb;
+    v_tenggat_str text;
+    v_jam_masuk_str text;
+  begin
+    v_dow := extract(dow from v_local_ts)::int;
+    v_day_name := case v_dow
+      when 0 then 'Minggu'
+      when 1 then 'Senin'
+      when 2 then 'Selasa'
+      when 3 then 'Rabu'
+      when 4 then 'Kamis'
+      when 5 then 'Jumat'
+      when 6 then 'Sabtu'
+    end;
 
-  v_tanggal := v_local_ts::date;
-  v_jam := v_local_ts::time;
+    v_tanggal := v_local_ts::date;
+    v_jam := v_local_ts::time;
 
-  if v_jam < time '00:00' or v_jam > time '23:59' then
-    return json_build_object(
-      'success', false,
-      'statusCode', 403,
-      'error', format('Tap ditolak. Absensi hanya diterima antara pukul 06:30 - 11:00. Waktu tap: %s.', to_char(v_jam, 'HH24:MI'))
-    );
-  end if;
+    -- Cari aturan jam berdasarkan hari ini dari kolom aturanJam
+    v_threshold := coalesce(nullif(v_sekolah."jamMasuk", '')::time, time '07:00');
+    
+    if v_sekolah."aturanJam" is not null and jsonb_typeof(v_sekolah."aturanJam"::jsonb) = 'array' then
+      -- Cek rule spesifik per hari
+      select elem into v_rule
+      from jsonb_array_elements(v_sekolah."aturanJam"::jsonb) as elem
+      where elem->>'hari' = v_day_name
+      limit 1;
 
-  v_threshold := coalesce(nullif(v_sekolah."jamMasuk", '')::time, time '06:30');
-  if v_jam <= v_threshold then
-    v_status := 'TEPAT_WAKTU';
-  else
-    v_status := 'TELAT';
-  end if;
+      if v_rule is not null then
+        v_tenggat_str := coalesce(v_rule->>'tenggat', v_rule->>'jamMasuk');
+        if v_tenggat_str is not null and v_tenggat_str <> '' then
+          v_threshold := v_tenggat_str::time;
+        end if;
+      end if;
+    end if;
+
+    if v_jam <= v_threshold then
+      v_status := 'TEPAT_WAKTU';
+    else
+      v_status := 'TELAT';
+    end if;
+  end;
 
   v_new_id := gen_random_uuid();
 

@@ -26,7 +26,7 @@ interface AturanJam {
   tenggat: string;
 }
 
-const HARI_SEKOLAH = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
+const HARI_SEKOLAH = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
 const DEFAULT_ATURAN: AturanJam[] = HARI_SEKOLAH.map((hari) => ({
   hari,

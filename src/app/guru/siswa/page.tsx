@@ -116,7 +116,7 @@ function TambahSiswaDialog({
             Tambah Data Siswa
           </DialogTitle>
           <p className="text-sm text-text-secondary">
-            Isi data siswa baru. NISN/NIS bersifat opsional.
+            Isi data siswa baru. UUID/NFC Tag ID bersifat opsional.
           </p>
         </DialogHeader>
 
@@ -144,12 +144,12 @@ function TambahSiswaDialog({
           {/* NISN */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-text-primary">
-              NISN / NIS
+              UUID / NFC Tag ID
               <span className="ml-1 text-xs font-normal text-text-muted">(opsional, maks. 20 karakter)</span>
             </label>
             <input
               type="text"
-              placeholder="Contoh: 0123456789 atau 23E07929"
+              placeholder="Contoh: 23E07929"
               maxLength={20}
               value={form.nisn}
               onChange={(e) => {
@@ -280,7 +280,7 @@ function ImportPreviewDialog({
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary w-8">#</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary">Nama</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary">NISN/NIS</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary">UUID/NFC Tag ID</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-text-secondary">Kelas</th>
                   </tr>
                 </thead>

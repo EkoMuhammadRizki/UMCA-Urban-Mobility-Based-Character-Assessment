@@ -236,11 +236,11 @@ async function fetchRealKehadiran(): Promise<Kehadiran[] | null> {
       .select("*");
 
     if (error) {
-      console.warn("Could not fetch Kehadiran from Supabase (using mock data fallback):", error.message || JSON.stringify(error));
+      console.warn("Could not fetch Kehadiran from Supabase:", error.message || JSON.stringify(error));
       return null;
     }
 
-    if (dbKehadiran && dbKehadiran.length > 0) {
+    if (dbKehadiran) {
       return dbKehadiran.map(r => ({
         id: r.id,
         siswaId: r.siswaId,
@@ -254,20 +254,19 @@ async function fetchRealKehadiran(): Promise<Kehadiran[] | null> {
       }));
     }
   } catch (e: any) {
-    console.warn("fetchRealKehadiran catch block (using mock data fallback):", e?.message || e);
+    console.warn("fetchRealKehadiran catch block:", e?.message || e);
   }
   return null;
 }
 
-// Export all attendance records (from DB or fallback mock) for research Excel export
+// Export all attendance records for research Excel export
 export async function getAllKehadiranData(): Promise<Kehadiran[]> {
   await syncDatabaseWithMock();
   const realRecords = await fetchRealKehadiran();
-  if (realRecords && realRecords.length > 0) {
+  if (realRecords !== null) {
     return realRecords;
   }
-  const now = new Date();
-  return generateKehadiran(now.getMonth(), now.getFullYear(), SISWA_LIST);
+  return [];
 }
 
 // ─── Rekap Kehadiran (table data) ─────────────────────────────

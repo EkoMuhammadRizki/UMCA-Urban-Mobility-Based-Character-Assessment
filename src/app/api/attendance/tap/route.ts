@@ -142,13 +142,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Cek hari sekolah dalam WIB (Hanya Senin - Jumat yang diizinkan untuk absensi)
-    if (tapWibDay === 0 || tapWibDay === 6) {
-      return NextResponse.json(
-        { success: false, error: "Absensi ditolak. Absensi hanya dapat dicatat pada hari Senin - Jumat." },
-        { status: 403 }
-      );
-    }
+
 
     // 4b. Validasi window jam tap yang diizinkan (WIB)
     // Window ditentukan secara dinamis dari aturanJam hari ini:
