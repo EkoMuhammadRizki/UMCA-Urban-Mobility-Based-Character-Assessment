@@ -6,6 +6,7 @@ import { MonthPicker } from "@/components/rekap/month-picker";
 import { AttendanceTable } from "@/components/rekap/attendance-table";
 import { AttendanceChart } from "@/components/rekap/attendance-chart";
 import { ExportExcelButton } from "@/components/rekap/export-excel-button";
+import { DeleteAttendanceButton } from "@/components/rekap/delete-attendance-button";
 import {
   getRekapKehadiran,
   getChartDataHarian,
@@ -106,14 +107,21 @@ export default function RekapKehadiranPage() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Export button */}
-        <ExportExcelButton
-          data={rekapData || []}
-          month={selectedMonth}
-          year={selectedYear}
-          kelas={selectedKelas || "Semua"}
-          disabled={rekapLoading || !rekapData?.length}
-        />
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          <DeleteAttendanceButton
+            month={selectedMonth}
+            year={selectedYear}
+            disabled={rekapLoading}
+          />
+          <ExportExcelButton
+            data={rekapData || []}
+            month={selectedMonth}
+            year={selectedYear}
+            kelas={selectedKelas || "Semua"}
+            disabled={rekapLoading || !rekapData?.length}
+          />
+        </div>
       </div>
 
       {/* Attendance Table */}
