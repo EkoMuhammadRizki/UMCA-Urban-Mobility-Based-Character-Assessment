@@ -5,6 +5,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { AttendanceDonut } from "@/components/dashboard/attendance-donut";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { EcoSummary } from "@/components/dashboard/eco-summary";
+import { NfcReaderStatusCard } from "@/components/dashboard/nfc-reader-status-card";
 import { getDashboardSummary, getRecentActivity } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
@@ -28,15 +29,22 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 md:space-y-8 animate-fade-in">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary tracking-tight">
-          Dashboard Kehadiran
-        </h1>
-        <p className="text-sm text-text-secondary mt-1">
-          Pantau ketepatan waktu dan aktivitas kehadiran siswa secara real-time.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight">
+            Dashboard Kehadiran
+          </h1>
+          <p className="text-sm text-text-secondary mt-1">
+            Pantau ketepatan waktu dan aktivitas kehadiran siswa secara real-time.
+          </p>
+        </div>
+      </div>
+
+      {/* Mobile NFC Reader Status Card (Visible on mobile/tablet screens) */}
+      <div className="block md:hidden">
+        <NfcReaderStatusCard />
       </div>
 
       {/* Stat cards */}
